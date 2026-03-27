@@ -7,6 +7,12 @@ __Created__ = 2023/10/27 09:54
 """
 import json
 import re
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from shared.config_validator import validate_url, validate_non_empty_list
 
 
 def _strip_jsonc_comments(text):
@@ -20,6 +26,20 @@ def _strip_jsonc_comments(text):
 
 class Config:
     def __init__(self, server_url, keyword, users, city, date, price, price_index, if_commit_order):
+        # Validate server_url
+        validate_url(server_url, "server_url")
+
+        # Validate users
+        validate_non_empty_list(users, "users")
+
+        # Validate price_index
+        if not isinstance(price_index, int) or isinstance(price_index, bool) or price_index < 0:
+            raise ValueError(f"price_index 必须是非负整数，实际值: {price_index!r}")
+
+        # Validate keyword
+        if not isinstance(keyword, str) or len(keyword.strip()) == 0:
+            raise ValueError(f"keyword 必须是非空字符串，实际值: {keyword!r}")
+
         self.server_url = server_url
         self.keyword = keyword
         self.users = users

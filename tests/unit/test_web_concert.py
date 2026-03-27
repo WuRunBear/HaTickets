@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch, MagicMock, call
 
 from selenium.common.exceptions import (
     NoSuchElementException,
+    StaleElementReferenceException,
     WebDriverException,
     TimeoutException,
 )
@@ -238,14 +239,14 @@ class TestUserSelection:
     @patch("concert.time.sleep")
     def test_select_users_tries_methods(self, mock_sleep, concert_instance):
         """_select_users iterates through methods for each user."""
-        with patch.object(concert_instance, "_try_select_user_method1", return_value=1) as m1:
+        with patch.object(concert_instance._user_selector, "try_select_user_method1", return_value=1) as m1:
             concert_instance._select_users(ticket_count=1, users_to_select=["UserA"])
             m1.assert_called_once()
 
     @patch("concert.time.sleep")
     def test_select_users_stops_at_ticket_count(self, mock_sleep, concert_instance):
         """When user_selected reaches ticket_count, further users are skipped."""
-        with patch.object(concert_instance, "_try_select_user_method1", return_value=1):
+        with patch.object(concert_instance._user_selector, "try_select_user_method1", return_value=1):
             concert_instance._select_users(ticket_count=1, users_to_select=["UserA", "UserB"])
             # UserB should be skipped (printed as "already enough")
 
@@ -394,21 +395,21 @@ class TestPlatformMobile:
 
     @patch("concert.time.sleep")
     def test_select_city_on_page_mobile(self, mock_sleep, concert_instance):
-        with patch.object(concert_instance, "_find_and_click_element", return_value=True) as mock_find:
+        with patch.object(concert_instance._ticket_selector, "find_and_click_element", return_value=True) as mock_find:
             result = concert_instance.select_city_on_page()
             assert result is True
             mock_find.assert_called_once()
 
     @patch("concert.time.sleep")
     def test_select_date_on_page_mobile(self, mock_sleep, concert_instance):
-        with patch.object(concert_instance, "_find_and_click_element", return_value=True) as mock_find:
+        with patch.object(concert_instance._ticket_selector, "find_and_click_element", return_value=True) as mock_find:
             result = concert_instance.select_date_on_page()
             assert result is True
 
     @patch("concert.time.sleep")
     def test_select_price_on_page_mobile(self, mock_sleep, concert_instance):
         concert_instance.driver.find_elements = Mock(return_value=[])
-        with patch.object(concert_instance, "_find_and_click_element", return_value=True) as mock_find:
+        with patch.object(concert_instance._ticket_selector, "find_and_click_element", return_value=True) as mock_find:
             result = concert_instance.select_price_on_page()
             assert result is True
 
@@ -747,7 +748,7 @@ class TestScanMethods:
         assert "无文本" in out
 
     def test_scan_page_text_exception(self, concert_instance, capsys):
-        concert_instance.driver.find_element = Mock(side_effect=Exception("fail"))
+        concert_instance.driver.find_element = Mock(side_effect=WebDriverException("fail"))
         concert_instance._scan_page_text()
         out = capsys.readouterr().out
         assert "扫描失败" in out
@@ -840,11 +841,12 @@ class TestUserSelectionMethods:
         div_elem.find_element = Mock(side_effect=NoSuchElementException())
 
         # First execute_script (click) fails, second (scroll) succeeds, third (click) succeeds
+        from selenium.common.exceptions import JavascriptException
         call_count = [0]
         def side_effect(*args):
             call_count[0] += 1
             if call_count[0] == 1:
-                raise Exception("click failed")
+                raise JavascriptException("click failed")
             return None
 
         concert_instance.driver.execute_script = Mock(side_effect=side_effect)
@@ -962,25 +964,25 @@ class TestSelectUsersOrchestrator:
     @patch("concert.time.sleep")
     def test_select_users_falls_through_methods(self, mock_sleep, concert_instance):
         """When method1 fails, tries method2, etc."""
-        with patch.object(concert_instance, "_try_select_user_method1", return_value=0), \
-             patch.object(concert_instance, "_try_select_user_method2", return_value=1) as m2:
+        with patch.object(concert_instance._user_selector, "try_select_user_method1", return_value=0), \
+             patch.object(concert_instance._user_selector, "try_select_user_method2", return_value=1) as m2:
             concert_instance._select_users(ticket_count=1, users_to_select=["UserA"])
             m2.assert_called_once()
 
     @patch("concert.time.sleep")
     def test_select_users_all_methods_fail(self, mock_sleep, concert_instance):
         """When all methods fail for a user, prints warning."""
-        with patch.object(concert_instance, "_try_select_user_method1", return_value=0), \
-             patch.object(concert_instance, "_try_select_user_method2", return_value=0), \
-             patch.object(concert_instance, "_try_select_user_method3", return_value=0), \
-             patch.object(concert_instance, "_try_select_user_method4", return_value=0):
+        with patch.object(concert_instance._user_selector, "try_select_user_method1", return_value=0), \
+             patch.object(concert_instance._user_selector, "try_select_user_method2", return_value=0), \
+             patch.object(concert_instance._user_selector, "try_select_user_method3", return_value=0), \
+             patch.object(concert_instance._user_selector, "try_select_user_method4", return_value=0):
             concert_instance._select_users(ticket_count=1, users_to_select=["UserA"])
 
     @patch("concert.time.sleep")
     def test_select_users_multiple_users(self, mock_sleep, concert_instance):
         """Selects multiple users in sequence."""
         call_results = iter([1, 2])
-        with patch.object(concert_instance, "_try_select_user_method1", side_effect=call_results):
+        with patch.object(concert_instance._user_selector, "try_select_user_method1", side_effect=call_results):
             concert_instance._select_users(ticket_count=2, users_to_select=["UserA", "UserB"])
 
 
@@ -1118,7 +1120,7 @@ class TestPlatformPCDetailed:
         concert_instance.driver.find_elements = Mock(return_value=[container])
         concert_instance.driver.find_element = Mock(return_value=container)
 
-        with patch.object(concert_instance, "_find_and_click_element", return_value=False):
+        with patch.object(concert_instance._ticket_selector, "find_and_click_element", return_value=False):
             result = concert_instance.select_city_on_page_pc()
             assert result is False
 
@@ -1131,26 +1133,26 @@ class TestPlatformPCDetailed:
     @patch("concert.time.sleep")
     def test_select_date_on_page_pc_no_match_uses_text_search(self, mock_sleep, concert_instance):
         concert_instance.driver.find_elements = Mock(return_value=[])
-        with patch.object(concert_instance, "_find_and_click_element", return_value=True) as m:
+        with patch.object(concert_instance._ticket_selector, "find_and_click_element", return_value=True) as m:
             result = concert_instance.select_date_on_page_pc()
             assert result is True
 
     @patch("concert.time.sleep")
     def test_select_date_on_page_pc_exception(self, mock_sleep, concert_instance):
-        concert_instance.driver.find_elements = Mock(side_effect=Exception("fail"))
+        concert_instance.driver.find_elements = Mock(side_effect=WebDriverException("fail"))
         result = concert_instance.select_date_on_page_pc()
         assert result is False
 
     @patch("concert.time.sleep")
     def test_select_price_on_page_pc_no_match_uses_text_search(self, mock_sleep, concert_instance):
         concert_instance.driver.find_elements = Mock(return_value=[])
-        with patch.object(concert_instance, "_find_and_click_element", return_value=True):
+        with patch.object(concert_instance._ticket_selector, "find_and_click_element", return_value=True):
             result = concert_instance.select_price_on_page_pc()
             assert result is True
 
     @patch("concert.time.sleep")
     def test_select_price_on_page_pc_exception(self, mock_sleep, concert_instance):
-        concert_instance.driver.find_elements = Mock(side_effect=Exception("fail"))
+        concert_instance.driver.find_elements = Mock(side_effect=WebDriverException("fail"))
         result = concert_instance.select_price_on_page_pc()
         assert result is False
 
@@ -1211,7 +1213,7 @@ class TestPlatformMobileDetailed:
             assert result is True
 
     def test_select_quantity_on_page_pc_alias(self, concert_instance):
-        with patch.object(concert_instance, "_select_quantity_on_page", return_value=True) as m:
+        with patch.object(concert_instance._ticket_selector, "select_quantity_on_page", return_value=True) as m:
             result = concert_instance.select_quantity_on_page_pc()
             assert result is True
             m.assert_called_once_with(platform="PC端")
@@ -1303,7 +1305,7 @@ class TestSelectOptionAdditional:
     def test_select_option_exception_in_element(self, mock_sleep, concert_instance):
         """Element that raises on .text should be skipped."""
         elem = Mock()
-        elem.text = property(lambda s: (_ for _ in ()).throw(Exception("stale")))
-        type(elem).text = property(lambda s: (_ for _ in ()).throw(Exception("stale")))
+        elem.text = property(lambda s: (_ for _ in ()).throw(StaleElementReferenceException("stale")))
+        type(elem).text = property(lambda s: (_ for _ in ()).throw(StaleElementReferenceException("stale")))
         result = concert_instance._select_option_by_config(["680"], [elem])
         assert result is False

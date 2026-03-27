@@ -63,12 +63,12 @@ impl ProxyBuilder {
         let res = Regex::new(
             r#"(?i)^(?:socks5|socks4|https?)://([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+):[0-9]+$"#,
         )
-        .unwrap();
+        .ok()?;
 
         // 尝试从输入中提取 IP 地址
         if let Some(captures) = res.captures(input) {
             if let Some(ip) = captures.get(1) {
-                return Some(ip.as_str().parse().unwrap());
+                return ip.as_str().parse().ok();
             }
         }
 

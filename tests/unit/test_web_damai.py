@@ -14,7 +14,7 @@ class TestCheckConfigFile:
         with pytest.raises(SystemExit):
             check_config_file()
 
-    def test_valid_config(self, tmp_path, monkeypatch, capsys):
+    def test_valid_config(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         config = {
             "index_url": "https://www.damai.cn/",
@@ -25,9 +25,7 @@ class TestCheckConfigFile:
             "if_commit_order": True,
         }
         (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
-        check_config_file()  # should not raise
-        out = capsys.readouterr().out
-        assert "加载成功" in out
+        check_config_file()  # should not raise SystemExit
 
     def test_missing_fields_exits(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
@@ -78,7 +76,9 @@ class TestLoadConfig:
     def test_default_values(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         config = {
-            "index_url": "x", "login_url": "x", "target_url": "x",
+            "index_url": "https://www.damai.cn/",
+            "login_url": "https://passport.damai.cn/login",
+            "target_url": "https://detail.damai.cn/item.htm?id=1",
             "users": ["A"], "if_listen": True, "if_commit_order": True,
         }
         (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")

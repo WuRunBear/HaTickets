@@ -7,6 +7,22 @@ import pytest
 from mobile.config import Config, _strip_jsonc_comments
 
 
+_VALID = dict(
+    server_url="http://localhost:4723",
+    keyword="周深",
+    users=["张三"],
+    city="深圳",
+    date="12.06",
+    price="799元",
+    price_index=0,
+    if_commit_order=False,
+)
+
+
+def _make(**overrides):
+    return {**_VALID, **overrides}
+
+
 class TestStripJsoncComments:
 
     def test_strip_single_line_comments(self):
@@ -50,6 +66,53 @@ class TestMobileConfigInit:
         assert cfg.price == "799元"
         assert cfg.price_index == 1
         assert cfg.if_commit_order is True
+
+
+class TestMobileConfigValidation:
+
+    def test_invalid_server_url_raises(self):
+        with pytest.raises(ValueError, match="server_url"):
+            Config(**_make(server_url="localhost:4723"))
+
+    def test_server_url_ftp_raises(self):
+        with pytest.raises(ValueError, match="server_url"):
+            Config(**_make(server_url="ftp://localhost:4723"))
+
+    def test_server_url_https_is_valid(self):
+        cfg = Config(**_make(server_url="https://remote.appium.io"))
+        assert cfg.server_url == "https://remote.appium.io"
+
+    def test_empty_users_raises(self):
+        with pytest.raises(ValueError, match="users"):
+            Config(**_make(users=[]))
+
+    def test_users_not_list_raises(self):
+        with pytest.raises(ValueError, match="users"):
+            Config(**_make(users="张三"))
+
+    def test_price_index_negative_raises(self):
+        with pytest.raises(ValueError, match="price_index"):
+            Config(**_make(price_index=-1))
+
+    def test_price_index_zero_is_valid(self):
+        cfg = Config(**_make(price_index=0))
+        assert cfg.price_index == 0
+
+    def test_price_index_float_raises(self):
+        with pytest.raises(ValueError, match="price_index"):
+            Config(**_make(price_index=1.5))
+
+    def test_empty_keyword_raises(self):
+        with pytest.raises(ValueError, match="keyword"):
+            Config(**_make(keyword=""))
+
+    def test_whitespace_keyword_raises(self):
+        with pytest.raises(ValueError, match="keyword"):
+            Config(**_make(keyword="   "))
+
+    def test_keyword_non_string_raises(self):
+        with pytest.raises(ValueError, match="keyword"):
+            Config(**_make(keyword=123))
 
 
 class TestMobileConfigLoadConfig:

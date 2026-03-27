@@ -6,7 +6,8 @@ authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
 packages = [
     { include = "web" },
-    { include = "mobile" }
+    { include = "mobile" },
+    { include = "shared" }
 ]
 
 [tool.poetry.dependencies]
@@ -57,6 +58,7 @@ omit = [
     "*/__init__.py",
     "*/conftest.py",
     "web/quick_diagnosis.py",
+    "web/logger.py",
 ]
 
 [tool.coverage.report]

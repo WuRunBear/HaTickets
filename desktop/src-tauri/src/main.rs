@@ -17,14 +17,15 @@ async fn get_product_info(
     cookie: &str,
     is_proxy: bool,
     address: String,
-) -> Result<String, ()> {
+) -> Result<String, String> {
     let res = get_info(t, sign, itemid, cookie, is_proxy, address).await;
     match res {
         Ok(s) => Ok(s),
-        Err(e) => Ok(e.to_string()),
+        Err(e) => Err(e.to_string()),
     }
 }
 
+// SAFETY: All header values in this function are static strings guaranteed to parse successfully.
 fn get_common_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
 
@@ -65,7 +66,7 @@ async fn get_info(
         "content-type",
         "application/x-www-form-urlencoded".parse().unwrap(),
     );
-    headers.insert(header::COOKIE, cookie.parse().unwrap());
+    headers.insert(header::COOKIE, cookie.parse().map_err(|e: reqwest::header::InvalidHeaderValue| Box::new(e) as Box<dyn Error>)?);
 
     let client = ProxyBuilder::new(is_proxy, address).get_client()?;
     let res = client
@@ -89,11 +90,11 @@ async fn get_ticket_list(
     dataid: &str,
     is_proxy: bool,
     address: String,
-) -> Result<String, ()> {
+) -> Result<String, String> {
     let res = get_ticket_list_res(t, sign, itemid, cookie, dataid, is_proxy, address).await;
     match res {
         Ok(s) => Ok(s),
-        Err(e) => Ok(e.to_string()),
+        Err(e) => Err(e.to_string()),
     }
 }
 
@@ -113,7 +114,7 @@ async fn get_ticket_list_res(
         "content-type",
         "application/x-www-form-urlencoded".parse().unwrap(),
     );
-    headers.insert(header::COOKIE, cookie.parse().unwrap());
+    headers.insert(header::COOKIE, cookie.parse().map_err(|e: reqwest::header::InvalidHeaderValue| Box::new(e) as Box<dyn Error>)?);
 
     let client = ProxyBuilder::new(is_proxy, address).get_client()?;
     let res = client
@@ -138,11 +139,11 @@ async fn get_ticket_detail(
     umidtoken: &str,
     is_proxy: bool,
     address: String,
-) -> Result<String, ()> {
+) -> Result<String, String> {
     let res = get_ticket_detail_res(t, sign, cookie, data, ua, umidtoken, is_proxy, address).await;
     match res {
         Ok(s) => Ok(s),
-        Err(e) => Ok(e.to_string()),
+        Err(e) => Err(e.to_string()),
     }
 }
 
@@ -167,7 +168,7 @@ async fn get_ticket_detail_res(
         "content-type",
         "application/x-www-form-urlencoded".parse().unwrap(),
     );
-    headers.insert(header::COOKIE, cookie.parse().unwrap());
+    headers.insert(header::COOKIE, cookie.parse().map_err(|e: reqwest::header::InvalidHeaderValue| Box::new(e) as Box<dyn Error>)?);
 
     let client = ProxyBuilder::new(is_proxy, address).get_client()?;
     let res = client
@@ -192,11 +193,11 @@ async fn create_order(
     submitref: &str,
     is_proxy: bool,
     address: String,
-) -> Result<String, ()> {
+) -> Result<String, String> {
     let res = create_order_res(t, sign, cookie, data, submitref, is_proxy, address).await;
     match res {
         Ok(s) => Ok(s),
-        Err(e) => Ok(e.to_string()),
+        Err(e) => Err(e.to_string()),
     }
 }
 
@@ -216,7 +217,7 @@ async fn create_order_res(
         "content-type",
         "application/x-www-form-urlencoded".parse().unwrap(),
     );
-    headers.insert(header::COOKIE, cookie.parse().unwrap());
+    headers.insert(header::COOKIE, cookie.parse().map_err(|e: reqwest::header::InvalidHeaderValue| Box::new(e) as Box<dyn Error>)?);
 
     let client = ProxyBuilder::new(is_proxy, address).get_client()?;
     let res = client
@@ -240,12 +241,12 @@ async fn get_user_list(
     data: &str,
     is_proxy: bool,
     address: String,
-) -> Result<String, ()> {
+) -> Result<String, String> {
     let res = get_user_list_res(t, sign, cookie, data, is_proxy, address).await;
 
     match res {
         Ok(s) => Ok(s),
-        Err(e) => Ok(e.to_string()),
+        Err(e) => Err(e.to_string()),
     }
 }
 
@@ -264,7 +265,7 @@ async fn get_user_list_res(
         "content-type",
         "application/x-www-form-urlencoded".parse().unwrap(),
     );
-    headers.insert(header::COOKIE, cookie.parse().unwrap());
+    headers.insert(header::COOKIE, cookie.parse().map_err(|e: reqwest::header::InvalidHeaderValue| Box::new(e) as Box<dyn Error>)?);
 
     let client = ProxyBuilder::new(is_proxy, address).get_client()?;
     let res = client
@@ -284,8 +285,9 @@ fn main() {
         .setup(|_app| {
             #[cfg(debug_assertions)] // only include this code on debug builds
             {
-                let window = _app.get_window("main").unwrap();
-                window.open_devtools();
+                if let Some(window) = _app.get_window("main") {
+                    window.open_devtools();
+                }
             }
             Ok(())
         })

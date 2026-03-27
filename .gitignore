@@ -34,3 +34,7 @@ venv/
 coverage.xml
 htmlcov/
 .pytest_cache/
+
+# Real config files (use *.example as template)
+web/config.local.json
+mobile/config.local.jsonc

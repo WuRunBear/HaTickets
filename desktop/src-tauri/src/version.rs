@@ -4,6 +4,7 @@ use reqwest::{header, Client};
 async fn get_repo_release() -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     let client = Client::builder().build()?;
     let mut headers = header::HeaderMap::new();
+    // SAFETY: Static string guaranteed to parse successfully
     headers.insert("user-agent", "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Mobile Safari/537.36".parse().unwrap());
     let res = client
         .get("https://api.github.com/repos/shiyutim/tickets/releases")

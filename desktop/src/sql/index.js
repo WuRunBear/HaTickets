@@ -10,6 +10,18 @@ export let logTableName = "LOG";
 // 全局setting表名称
 export const settingTableName = "SETTINGS";
 
+// Allowed table names to prevent SQL injection
+const ALLOWED_TABLES = new Set([settingTableName]);
+
+function isAllowedTable(name) {
+    return ALLOWED_TABLES.has(name) || name === logTableName;
+}
+
+// Validate column names: only allow alphanumeric and underscores
+function isValidColumnName(name) {
+    return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
+}
+
 // 获取 appid
 export const getAppId = async () => {
     const res = await selectAll(settingTableName);
@@ -27,7 +39,10 @@ export const changeLogTableName = async () => {
     // 设置唯一表名
     const appId = await getAppId()
     if(appId) {
-        logTableName = `${appId}_LOG`;
+        // Validate appId format before using in table name
+        if (/^[a-zA-Z0-9_]+$/.test(appId)) {
+            logTableName = `${appId}_LOG`;
+        }
     }
 };
 
@@ -45,7 +60,11 @@ export const initDb = async () => {
 export const initLogTable = async () => {
     await initDb();
     await db.execute(
-        `CREATE TABLE IF NOT EXISTS ${logTableName} (id INTEGER PRIMARY KEY AUTOINCREMENT, time TIMESTAMP, type TEXT, status INTEGER, title TEXT, msg TEXT);`
+        `CREATE TABLE IF NOT EXISTS ${logTableName} (id INTEGER PRIMARY KEY AUTOINCREMENT, time TIMESTAMP NOT NULL, type TEXT, status INTEGER, title TEXT, msg TEXT);`
+    );
+    // Add index on time for query performance
+    await db.execute(
+        `CREATE INDEX IF NOT EXISTS idx_${logTableName}_time ON ${logTableName} (time);`
     );
 };
 
@@ -53,65 +72,69 @@ export const initLogTable = async () => {
 export const initSettingTable = async () => {
     await initDb();
     await db.execute(
-        `CREATE TABLE IF NOT EXISTS ${settingTableName} (proxy TEXT, appid_list TEXT, appid TEXT)`
+        `CREATE TABLE IF NOT EXISTS ${settingTableName} (proxy TEXT, appid_list TEXT, appid TEXT NOT NULL)`
     );
 };
 
-// 添加逻辑
+// 添加逻辑 - parameterized queries
 export const insert = async (tableName, params) => {
-    const [retKeys, retValues] = getSqlInsetQuery(params);
+    if (!isAllowedTable(tableName)) {
+        throw new Error(`Table "${tableName}" is not allowed`);
+    }
+
+    const keys = Object.keys(params);
+    if (keys.some(k => !isValidColumnName(k))) {
+        throw new Error("Invalid column name detected");
+    }
+
+    const placeholders = keys.map(() => "?").join(", ");
+    const values = keys.map(k => {
+        const v = params[k];
+        return typeof v === "object" ? JSON.stringify(v) : v;
+    });
 
     return await db.execute(
-        `INSERT INTO ${tableName} (${retKeys.join()}) VALUES (${retValues.join()});`
+        `INSERT INTO ${tableName} (${keys.join(", ")}) VALUES (${placeholders})`,
+        values
     );
 };
 
-function getSqlInsetQuery(object) {
-    const retKeys = [];
-    const retValues = [];
-
-    for (const [key, values] of Object.entries(object)) {
-        retKeys.push(key);
-        retValues.push(
-            typeof values === "object"
-                ? `'${JSON.stringify(values)}'`
-                : JSON.stringify(values)
-        );
-    }
-
-    return [retKeys, retValues];
-}
-
-function getSqlUpdateQuery(object) {
-    let result = [];
-    for (const [key, values] of Object.entries(object)) {
-        let current = `${key}=${
-            typeof values === "object"
-                ? `'${JSON.stringify(values)}'`
-                : JSON.stringify(values)
-        }`;
-
-        result.push(current);
-    }
-
-    return result.join();
-}
-
-// !!!默认更新所有
+// !!!默认更新所有 - parameterized queries
 export const update = async (tableName, params) => {
-    return execute(`UPDATE ${tableName} SET ${getSqlUpdateQuery(params)}`);
+    if (!isAllowedTable(tableName)) {
+        throw new Error(`Table "${tableName}" is not allowed`);
+    }
+
+    const keys = Object.keys(params);
+    if (keys.some(k => !isValidColumnName(k))) {
+        throw new Error("Invalid column name detected");
+    }
+
+    const setClauses = keys.map(k => `${k} = ?`).join(", ");
+    const values = keys.map(k => {
+        const v = params[k];
+        return typeof v === "object" ? JSON.stringify(v) : v;
+    });
+
+    return await db.execute(
+        `UPDATE ${tableName} SET ${setClauses}`,
+        values
+    );
 };
 
-export const execute = async (query) => {
-    return await db.execute(query);
+export const execute = async (query, params = []) => {
+    return await db.execute(query, params);
 };
 
-// 获取指定
-export const select = async (query) => {
-    return await db.select(query);
+// 获取指定 - parameterized queries
+export const select = async (query, params = []) => {
+    return await db.select(query, params);
 };
 
 // 获取所有
 export const selectAll = async (tableName) => {
+    if (!isAllowedTable(tableName)) {
+        throw new Error(`Table "${tableName}" is not allowed`);
+    }
     return select(`SELECT * FROM ${tableName}`);
 };
