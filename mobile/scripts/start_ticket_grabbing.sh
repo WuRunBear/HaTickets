@@ -18,8 +18,8 @@ fi
 echo "✅ Appium服务器运行正常"
 
 # 检查配置文件
-if [ ! -f "damai_appium/config.jsonc" ]; then
-    echo "❌ 配置文件不存在: damai_appium/config.jsonc"
+if [ ! -f "mobile/config.jsonc" ]; then
+    echo "❌ 配置文件不存在: mobile/config.jsonc"
     exit 1
 fi
 
@@ -27,7 +27,7 @@ echo "✅ 配置文件存在"
 
 # 显示当前配置
 echo "📋 当前配置:"
-echo "   $(cat damai_appium/config.jsonc | grep -E '"keyword"|"city"|"users"' | head -3)"
+echo "   $(cat mobile/config.jsonc | grep -E '"keyword"|"city"|"users"' | head -3)"
 
 # 确认是否继续
 read -p "🤔 确认开始抢票？(y/N): " -n 1 -r
@@ -38,7 +38,7 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 # 进入脚本目录
-cd damai_appium
+cd mobile
 
 echo "🚀 开始抢票..."
 echo "   请确保："
@@ -48,4 +48,4 @@ echo "   3. 已进入演出详情页面"
 echo ""
 
 # 运行抢票脚本
-/Users/shengwang/Library/Caches/pypoetry/virtualenvs/damai-ticket-automation-L9sk-bCq-py3.12/bin/python damai_app_v2.py
+poetry run python damai_app.py
