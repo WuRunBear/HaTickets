@@ -63,7 +63,7 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            curl pkg-config \
+            build-essential curl pkg-config \
             libwebkit2gtk-4.0-dev libgtk-3-dev libappindicator3-dev \
             librsvg2-dev patchelf
 
