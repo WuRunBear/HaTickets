@@ -151,7 +151,7 @@ appium --port 4723
 ```
 
 #### 4. 配置抢票参数
-编辑 `damai_appium/config.jsonc` 文件，设置：
+编辑 `mobile/config.jsonc` 文件，设置：
 - 搜索关键词
 - 观演人员
 - 城市、日期、票价
@@ -159,18 +159,18 @@ appium --port 4723
 
 #### 5. 运行抢票脚本
 ```bash
-cd damai_appium
-ANDROID_HOME=/Users/shengwang/Library/Android/sdk ANDROID_SDK_ROOT=/Users/shengwang/Library/Android/sdk python damai_app_v2.py
+cd mobile
+ANDROID_HOME=/Users/shengwang/Library/Android/sdk ANDROID_SDK_ROOT=/Users/shengwang/Library/Android/sdk python damai_app.py
 ```
 
 ### Web端抢票
 
 #### 1. 配置参数
-编辑 `damai/config.json` 文件，设置目标演出URL和其他参数。
+编辑 `web/config.json` 文件，设置目标演出URL和其他参数。
 
 #### 2. 运行抢票脚本
 ```bash
-cd damai
+cd web
 python damai.py
 ```
 
@@ -245,22 +245,25 @@ adb shell pm list packages | grep damai
 ## 📁 项目结构
 
 ```
-ticket-purchase/
-├── damai/                    # Web端抢票
-│   ├── damai.py             # 主程序
+HaTickets/
+├── web/                      # Web端抢票 (Selenium + Python)
+│   ├── damai.py             # 主程序入口
+│   ├── concert.py           # 核心自动化逻辑
 │   ├── config.py            # 配置类
 │   ├── config.json          # 配置文件
-│   └── requirements.txt      # 依赖文件
-├── damai_appium/             # 移动端抢票
-│   ├── damai_app_v2.py      # 优化版主程序
-│   ├── damai_app.py         # 原版主程序
+│   └── scripts/             # 环境检查脚本
+├── mobile/                   # 移动端抢票 (Appium + Python)
+│   ├── damai_app.py         # 主程序 (坐标点击优化版)
 │   ├── config.py            # 配置类
 │   ├── config.jsonc         # 配置文件
-│   └── app.md               # 应用说明
-├── tests/                    # 测试文件
-├── doc/                      # 文档
-├── img/                      # 图片资源
-└── README.md                 # 说明文档
+│   └── scripts/             # 启动脚本
+├── desktop/                  # 桌面端抢票 (Tauri: Vue 3 + Rust)
+│   ├── src/                 # Vue 3 前端
+│   ├── src-tauri/           # Rust 后端 (直调 mtop API)
+│   └── package.json         # 前端依赖
+├── tests/                    # Python 测试
+├── docs/                     # 项目文档与图片
+└── pyproject.toml            # Python 依赖与测试配置
 ```
 
 ## 🎯 使用流程
