@@ -20,11 +20,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Extract tag annotation
+        id: tag-notes
+        run: |
+          NOTES=$(git tag -l --format='%(contents)' ${{ github.ref_name }})
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create release with auto-generated notes
         id: create-release
         uses: softprops/action-gh-release@v2
         with:
           name: "app ${{ github.ref_name }}"
+          body: ${{ steps.tag-notes.outputs.notes }}
           generate_release_notes: true
           draft: false
           prerelease: false
