@@ -60,11 +60,12 @@ class TestEnterConcertToChooseTicket:
         mock_driver.find_element = Mock(side_effect=NoSuchElementException)
         mock_driver.find_elements = Mock(return_value=[])
 
+        cookie_data = {"cookies": [{"name": "t", "value": "v", "domain": ".damai.cn"}], "saved_at": 9999999999}
         with patch("concert.get_chromedriver_path", return_value="/fake"), \
              patch("concert.webdriver.Chrome", return_value=mock_driver), \
              patch("selenium.webdriver.chrome.service.Service"), \
              patch("concert.os.path.exists", return_value=True), \
-             patch("concert.pickle.load", return_value=[{"name": "t", "value": "v", "domain": ".damai.cn"}]), \
+             patch("concert.json.load", return_value=cookie_data), \
              patch("builtins.open", create=True):
             con = Concert(config)
             con.login_method = 1

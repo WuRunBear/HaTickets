@@ -4,9 +4,20 @@
 
 echo "🚀 启动大麦抢票环境..."
 
-# 设置Android环境变量
-export ANDROID_HOME=/Users/shengwang/Library/Android/sdk
-export ANDROID_SDK_ROOT=/Users/shengwang/Library/Android/sdk
+# 设置Android环境变量（优先使用已有环境变量，否则自动检测常见路径）
+if [ -z "$ANDROID_HOME" ]; then
+    if [ -d "$HOME/Library/Android/sdk" ]; then
+        export ANDROID_HOME="$HOME/Library/Android/sdk"
+    elif [ -d "$HOME/Android/Sdk" ]; then
+        export ANDROID_HOME="$HOME/Android/Sdk"
+    elif [ -d "/opt/android-sdk" ]; then
+        export ANDROID_HOME="/opt/android-sdk"
+    else
+        echo "❌ 未找到 Android SDK，请设置 ANDROID_HOME 环境变量"
+        exit 1
+    fi
+fi
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
 
 echo "✅ 环境变量已设置"
 echo "   ANDROID_HOME: $ANDROID_HOME"
@@ -29,7 +40,7 @@ DEVICES=$(adb devices | grep -c "device$")
 if [ $DEVICES -eq 0 ]; then
     echo "⚠️  未检测到Android设备"
     echo "   请启动模拟器或连接真机"
-    echo "   启动模拟器: /Users/shengwang/Library/Android/sdk/emulator/emulator -avd Medium_Phone_API_36.0"
+    echo "   启动模拟器: \$ANDROID_HOME/emulator/emulator -avd Medium_Phone_API_36.0"
     exit 1
 else
     echo "✅ 检测到 $DEVICES 个Android设备"

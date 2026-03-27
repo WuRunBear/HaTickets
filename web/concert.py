@@ -14,8 +14,8 @@ Sub-modules:
   order_submitter  — Order submission strategies
 """
 
+import json
 import os.path
-import pickle
 import time
 from time import sleep
 
@@ -34,6 +34,12 @@ from session_manager import SessionManager
 from ticket_selector import TicketSelector
 from user_selector import UserSelector
 from order_submitter import OrderSubmitter
+from logger import get_logger
+
+logger = get_logger(__name__)
+
+COOKIE_FILE = "damai_cookies.json"
+COOKIE_MAX_AGE = 86400  # 24 hours
 
 
 class Concert:
@@ -44,13 +50,13 @@ class Concert:
 
         # Driver setup is done here so tests can patch concert.get_chromedriver_path
         # and concert.webdriver.Chrome without needing to patch session_manager.*
-        print("⏳ 正在检查 Chrome 环境...")
+        logger.info("⏳ 正在检查 Chrome 环境...")
         try:
             chromedriver_path = get_chromedriver_path()
-            print(f"✓ ChromeDriver 就绪: {chromedriver_path}\n")
+            logger.info(f"✓ ChromeDriver 就绪: {chromedriver_path}")
         except RuntimeError as e:
-            print(f"✗ 环境检查失败: {e}")
-            print("\n建议运行: python damai/check_environment.py")
+            logger.error(f"✗ 环境检查失败: {e}")
+            logger.error("建议运行: python damai/check_environment.py")
             exit(1)
 
         chrome_options = webdriver.ChromeOptions()
@@ -79,17 +85,18 @@ class Concert:
         :return: 写入cookie
         """
         self.driver.get(self.config.index_url)
-        print("***请点击登录***\n")
+        logger.info("***请点击登录***")
         while self.driver.title.find('大麦网-全球演出赛事官方购票平台') != -1:
             sleep(1)
-        print("***请扫码登录***\n")
+        logger.info("***请扫码登录***")
         while self.driver.title != '大麦网-全球演出赛事官方购票平台-100%正品、先付先抢、在线选座！':
             sleep(1)
-        print("***扫码成功***\n")
+        logger.info("***扫码成功***")
 
-        # 将cookie写入damai_cookies.pkl文件中
-        pickle.dump(self.driver.get_cookies(), open("damai_cookies.pkl", "wb"))
-        print("***Cookie保存成功***")
+        data = {"cookies": self.driver.get_cookies(), "saved_at": time.time()}
+        with open(COOKIE_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        logger.info("***Cookie保存成功***")
         # 读取抢票目标页面
         self.driver.get(self.config.target_url)
 
@@ -98,19 +105,28 @@ class Concert:
         :return: 读取cookie
         """
         try:
-            cookies = pickle.load(open("damai_cookies.pkl", "rb"))
-            for cookie in cookies:
+            with open(COOKIE_FILE, encoding="utf-8") as f:
+                data = json.load(f)
+            if time.time() - data.get("saved_at", 0) > COOKIE_MAX_AGE:
+                os.remove(COOKIE_FILE)
+                logger.warning("Cookie 已过期（超过24小时），已自动删除")
+                return
+            for cookie in data.get("cookies", []):
                 cookie_dict = {
                     'domain': '.damai.cn',  # 域为大麦网的才为有效cookie
                     'name': cookie.get('name'),
                     'value': cookie.get('value'),
                 }
                 self.driver.add_cookie(cookie_dict)
-            print('***完成cookie加载***\n')
-        except FileNotFoundError as e:
-            print(f"Cookie 文件不存在: {e}")
-        except (pickle.UnpicklingError, EOFError) as e:
-            print(f"Cookie 文件损坏，无法加载: {e}")
+            logger.info('***完成cookie加载***')
+        except FileNotFoundError:
+            logger.warning("Cookie 文件不存在，将重新登录")
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.error(f"Cookie 文件格式错误: {e}")
+            try:
+                os.remove(COOKIE_FILE)
+            except OSError:
+                pass
 
     def login(self):
         """
@@ -118,9 +134,9 @@ class Concert:
         """
         if self.login_method == 0:
             self.driver.get(self.config.login_url)
-            print('***开始登录***\n')
+            logger.info('***开始登录***')
         elif self.login_method == 1:
-            if not os.path.exists('damai_cookies.pkl'):
+            if not os.path.exists(COOKIE_FILE):
                 # 没有cookie就获取
                 self.set_cookie()
             else:
@@ -136,10 +152,10 @@ class Concert:
 
     def enter_concert(self):
         """:return: 打开浏览器"""
-        print('***打开浏览器，进入大麦网***\n')
+        logger.info('***打开浏览器，进入大麦网***')
         self.login()
         self.status = 2
-        print('***登录成功***')
+        logger.info('***登录成功***')
         if self.is_element_exist('/html/body/div[2]/div[2]/div/div/div[3]/div[2]'):
             self.driver.find_element(value='/html/body/div[2]/div[2]/div/div/div[3]/div[2]', by=By.XPATH).click()
 
@@ -201,29 +217,29 @@ class Concert:
         if self.status != 2:
             return
 
-        print("*******************************\n")
-        print("***开始在详情页选择***\n")
+        logger.info("*******************************")
+        logger.info("***开始在详情页选择***")
 
         is_mobile = 'm.damai.cn' in self.driver.current_url
 
         if is_mobile:
-            print("检测到移动端页面\n")
+            logger.info("检测到移动端页面")
             self.select_details_page_mobile()
         else:
-            print("检测到PC端页面\n")
+            logger.info("检测到PC端页面")
             self.select_details_page_pc()
 
-        print("*******************************\n")
-        print("***开始轮询检测预订按钮***\n")
+        logger.info("*******************************")
+        logger.info("***开始轮询检测预订按钮***")
 
         clicked_booking = False
         while not self._is_order_confirmation_page():
             if clicked_booking:
                 if self._is_order_confirmation_page():
-                    print('  ✓ 页面已跳转到订单确认页\n')
+                    logger.info('  ✓ 页面已跳转到订单确认页')
                     break
                 elif '选座购买' in self.driver.title:
-                    print('  ✓ 页面已跳转到选座购买页\n')
+                    logger.info('  ✓ 页面已跳转到选座购买页')
                     break
                 else:
                     wait_time = 0.2 if self.config.fast_mode else 0.5
@@ -237,7 +253,7 @@ class Concert:
                 if buy_button == "提交缺货登记":
                     self.status = 2
                     self.driver.get(self.config.target_url)
-                    print('***抢票未开始，刷新等待开始***\n')
+                    logger.info('***抢票未开始，刷新等待开始***')
                     continue
 
                 clickable_actions = [
@@ -251,31 +267,31 @@ class Concert:
                 for action in clickable_actions:
                     text, current_text, locator, *condition = action
                     if current_text == text and (not condition or condition[0]()):
-                        print(f'✓ 检测到按钮: {text}')
+                        logger.info(f'✓ 检测到按钮: {text}')
                         self._click_element_safe(locator, By.CLASS_NAME)
                         self.status = 3
                         clicked_booking = True
-                        print('  等待页面跳转...\n')
+                        logger.info('  等待页面跳转...')
                         action_taken = True
                         break
 
                 if not action_taken and by_link in ("不，立即预订", "不，立即购买"):
-                    print(f'✓ 检测到链接: {by_link}')
+                    logger.info(f'✓ 检测到链接: {by_link}')
                     self._click_element_safe('buy-link', By.CLASS_NAME)
                     self.status = 3
                     clicked_booking = True
-                    print('  等待页面跳转...\n')
+                    logger.info('  等待页面跳转...')
 
             except (NoSuchElementException, StaleElementReferenceException, WebDriverException) as e:
-                print(f"轮询检测按钮时出现异常: {e}")
+                logger.warning(f"轮询检测按钮时出现异常: {e}")
 
             if '选座购买' in self.driver.title:
                 self.choice_seat()
             elif self._is_order_confirmation_page():
-                print('***进入订单确认页***\n')
+                logger.info('***进入订单确认页***')
                 self.commit_order()
             else:
-                print('***抢票未开始，刷新等待开始***\n')
+                logger.info('***抢票未开始，刷新等待开始***')
                 refresh_wait = 0.3 if self.config.fast_mode else 1
                 time.sleep(refresh_wait)
                 self.driver.refresh()
@@ -283,7 +299,7 @@ class Concert:
     def choice_seat(self):
         while self.driver.title == '选座购买':
             while self.is_element_exist('//*[@id="app"]/div[2]/div[2]/div[1]/div[2]/img'):
-                print('请快速选择您的座位！！！')
+                logger.info('请快速选择您的座位！！！')
             while self.is_element_exist('//*[@id="app"]/div[2]/div[2]/div[2]/div'):
                 self.driver.find_element(value='//*[@id="app"]/div[2]/div[2]/div[2]/button', by=By.XPATH).click()
 
@@ -291,27 +307,27 @@ class Concert:
         """选择订单：包括场次、票档、人数"""
         self.driver.find_element(value='buy__button__text', by=By.CLASS_NAME).click()
         time.sleep(0.2)
-        print("***选定场次***\n")
+        logger.info("***选定场次***")
 
         if self.driver.find_elements(value='sku-times-card', by=By.CLASS_NAME) and self.config.dates:
             order_name_element_list = self.driver.find_element(
                 value='sku-times-card', by=By.CLASS_NAME
             ).find_elements(value='bui-dm-sku-card-item', by=By.CLASS_NAME)
             if self._select_option_by_config(self.config.dates, order_name_element_list):
-                print("  ✓ 场次选择成功")
+                logger.info("  ✓ 场次选择成功")
 
-        print("***选定票档***\n")
+        logger.info("***选定票档***")
         if self.driver.find_elements(value='sku-tickets-card', by=By.CLASS_NAME) and self.config.prices:
             sku_name_element_list = self.driver.find_elements(value='item-content', by=By.CLASS_NAME)
             if self._select_option_by_config(self.config.prices, sku_name_element_list, ['缺', '售罄']):
-                print("  ✓ 票档选择成功")
+                logger.info("  ✓ 票档选择成功")
 
-        print("***选定人数***\n")
+        logger.info("***选定人数***")
         if self.driver.find_elements(value='bui-dm-sku-counter', by=By.CLASS_NAME):
             for i in range(len(self.config.users) - 1):
                 self.driver.execute_script(
                     'document.getElementsByClassName("number-edit-bg")[1].click();')
-            print(f"  ✓ 已选择 {len(self.config.users)} 张票")
+            logger.info(f"  ✓ 已选择 {len(self.config.users)} 张票")
 
         self.driver.find_element(value='bui-btn-contained', by=By.CLASS_NAME).click()
 
@@ -324,10 +340,10 @@ class Concert:
         if self.status not in [3]:
             return
 
-        print('***开始确认订单***\n')
+        logger.info('***开始确认订单***')
 
         if not self.config.fast_mode:
-            print('⏳ 等待订单确认页加载...\n')
+            logger.info('⏳ 等待订单确认页加载...')
             time.sleep(self.config.page_load_delay)
         else:
             from selenium.webdriver.support.ui import WebDriverWait
@@ -344,9 +360,9 @@ class Concert:
         ticket_count = len(self.config.users)
 
         if not self.config.fast_mode:
-            print(f"  购票数量: {ticket_count} 张（已在详情页选择）\n")
-            print(f"  配置观众: {self.config.users}")
-            print(f"  需要选择观众: {ticket_count} 个\n")
+            logger.info(f"  购票数量: {ticket_count} 张（已在详情页选择）")
+            logger.info(f"  配置观众: {self.config.users}")
+            logger.info(f"  需要选择观众: {ticket_count} 个")
 
         users_to_select = self.config.users[:ticket_count]
 
@@ -364,14 +380,14 @@ class Concert:
             # Broad catch is intentional: user-selection can fail for many reasons
             # (DOM changes, unexpected page state, network issues). We log and
             # continue so the user can manually complete the selection.
-            print("***购票人信息选择过程出现异常***\n")
-            print(f"  异常信息: {e}")
-            print("\n  建议:")
-            print("    1. 在浏览器中手动选择购票人")
+            logger.error("***购票人信息选择过程出现异常***")
+            logger.error(f"  异常信息: {e}")
+            logger.info("  建议:")
+            logger.info("    1. 在浏览器中手动选择购票人")
             if not self.config.fast_mode:
-                print("    2. 查看上方扫描输出，确认用户名格式")
-            print("    3. 检查用户名是否与配置一致")
-            print(f"    4. 确保选择 {ticket_count} 个观众\n")
+                logger.info("    2. 查看上方扫描输出，确认用户名格式")
+            logger.info("    3. 检查用户名是否与配置一致")
+            logger.info(f"    4. 确保选择 {ticket_count} 个观众")
 
         if self.config.fast_mode:
             time.sleep(0.1)
@@ -388,87 +404,70 @@ class Concert:
     def select_details_page_mobile(self):
         """在移动端详情页完成所有选择：城市、场次、票价、数量"""
         if not self.config.fast_mode:
-            print("⏳ 开始在移动端详情页进行选择...\n")
+            logger.info("⏳ 开始在移动端详情页进行选择...")
 
         success = True
 
         if self.config.city and success:
             if not self.config.fast_mode:
-                print("***选择城市***")
-                print(f"  目标城市: {self.config.city}")
+                logger.info("***选择城市***")
+                logger.info(f"  目标城市: {self.config.city}")
             success = self.select_city_on_page()
-            if not self.config.fast_mode:
-                print()
 
         if self.config.dates and success:
             if not self.config.fast_mode:
-                print("***选择场次***")
-                print(f"  目标场次: {self.config.dates}")
+                logger.info("***选择场次***")
+                logger.info(f"  目标场次: {self.config.dates}")
             success = self.select_date_on_page()
-            if not self.config.fast_mode:
-                print()
 
         if self.config.prices and success:
             if not self.config.fast_mode:
-                print("***选择票价***")
-                print(f"  目标票价: {self.config.prices}")
+                logger.info("***选择票价***")
+                logger.info(f"  目标票价: {self.config.prices}")
             success = self.select_price_on_page()
-            if not self.config.fast_mode:
-                print()
 
         if len(self.config.users) > 1 and success:
             if not self.config.fast_mode:
-                print("***选择购票数量***")
-                print(f"  目标数量: {len(self.config.users)} 张")
+                logger.info("***选择购票数量***")
+                logger.info(f"  目标数量: {len(self.config.users)} 张")
             self.select_quantity_on_page()
-            if not self.config.fast_mode:
-                print()
 
-        print("***详情页选择完成***\n")
+        logger.info("***详情页选择完成***")
 
     def select_details_page_pc(self):
         """在PC端详情页完成所有选择：城市、场次、票价、数量"""
         if not self.config.fast_mode:
-            print("⏳ 开始在PC端详情页进行选择...\n")
-            print("***扫描页面元素***\n")
+            logger.info("⏳ 开始在PC端详情页进行选择...")
+            logger.info("***扫描页面元素***")
             self.scan_page_elements()
-            print()
 
         success = True
 
         if self.config.city and success:
             if not self.config.fast_mode:
-                print("***选择城市***")
-                print(f"  目标城市: {self.config.city}")
+                logger.info("***选择城市***")
+                logger.info(f"  目标城市: {self.config.city}")
             success = self.select_city_on_page_pc()
-            if not self.config.fast_mode:
-                print()
 
         if self.config.dates and success:
             if not self.config.fast_mode:
-                print("***选择场次***")
-                print(f"  目标场次: {self.config.dates}")
+                logger.info("***选择场次***")
+                logger.info(f"  目标场次: {self.config.dates}")
             success = self.select_date_on_page_pc()
-            if not self.config.fast_mode:
-                print()
 
         if self.config.prices and success:
             if not self.config.fast_mode:
-                print("***选择票价***")
-                print(f"  目标票价: {self.config.prices}")
+                logger.info("***选择票价***")
+                logger.info(f"  目标票价: {self.config.prices}")
             success = self.select_price_on_page_pc()
-            if not self.config.fast_mode:
-                print()
 
         if len(self.config.users) > 1 and success:
             if not self.config.fast_mode:
-                print("***选择购票数量***")
-                print(f"  目标数量: {len(self.config.users)} 张")
+                logger.info("***选择购票数量***")
+                logger.info(f"  目标数量: {len(self.config.users)} 张")
             self._select_quantity_on_page(platform="PC端")
-            if not self.config.fast_mode:
-                print()
 
-        print("***详情页选择完成***\n")
+        logger.info("***详情页选择完成***")
 
     # ===================================================================
     # Ticket selection methods — forward to TicketSelector

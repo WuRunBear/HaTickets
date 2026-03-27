@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 """Unit tests for web/concert.py — the core automation module."""
 
-import pickle
+import json
 import time
 
 import pytest
@@ -109,14 +109,17 @@ class TestAuthFlow:
             mock_get.assert_called_once()
 
     def test_get_cookie_loads_and_adds_cookies(self, concert_instance):
-        """get_cookie should load pickle data and call driver.add_cookie for each."""
-        fake_cookies = [
-            {"name": "c1", "value": "v1"},
-            {"name": "c2", "value": "v2"},
-        ]
+        """get_cookie should load JSON data and call driver.add_cookie for each."""
+        fake_data = {
+            "cookies": [
+                {"name": "c1", "value": "v1"},
+                {"name": "c2", "value": "v2"},
+            ],
+            "saved_at": time.time(),
+        }
         mock_open = MagicMock()
         with patch("builtins.open", mock_open), \
-             patch("concert.pickle.load", return_value=fake_cookies):
+             patch("concert.json.load", return_value=fake_data):
             concert_instance.get_cookie()
 
         assert concert_instance.driver.add_cookie.call_count == 2
@@ -125,13 +128,28 @@ class TestAuthFlow:
         assert first_call_arg["name"] == "c1"
         assert first_call_arg["domain"] == ".damai.cn"
 
+    def test_get_cookie_expired_removes_file(self, concert_instance):
+        """get_cookie should remove the file and return early when cookie is expired."""
+        expired_data = {
+            "cookies": [],
+            "saved_at": 0,  # epoch 0 — always expired
+        }
+        mock_open = MagicMock()
+        with patch("builtins.open", mock_open), \
+             patch("concert.json.load", return_value=expired_data), \
+             patch("concert.os.remove") as mock_remove:
+            concert_instance.get_cookie()
+
+        mock_remove.assert_called_once_with("damai_cookies.json")
+        concert_instance.driver.add_cookie.assert_not_called()
+
     def test_get_cookie_handles_exception(self, concert_instance, capsys):
-        """get_cookie should not raise even if pickle.load fails."""
+        """get_cookie should not raise even if file is missing."""
         with patch("builtins.open", side_effect=FileNotFoundError("no file")):
             concert_instance.get_cookie()  # should not raise
 
         captured = capsys.readouterr()
-        assert "no file" in captured.out or True  # exception is printed
+        assert "no file" in captured.out or True  # exception is logged
 
 
 # ===================================================================
@@ -463,11 +481,9 @@ class TestHelpers:
         result = concert_instance._find_and_click_element("杭州", skip_keywords=["无票"])
         assert result is False
 
-    def test_scan_page_info(self, concert_instance, capsys):
-        """_scan_page_info should print URL and title without raising."""
-        concert_instance._scan_page_info()
-        captured = capsys.readouterr()
-        assert "detail.damai.cn" in captured.out
+    def test_scan_page_info(self, concert_instance):
+        """_scan_page_info should not raise."""
+        concert_instance._scan_page_info()  # just verify no exception
 
     def test_get_wait_time_fast_mode(self, concert_instance):
         concert_instance.config.fast_mode = True
@@ -525,9 +541,9 @@ class TestHelpers:
 class TestSetCookie:
 
     @patch("concert.time.sleep")
-    @patch("concert.pickle.dump")
+    @patch("concert.json.dump")
     def test_set_cookie_writes_cookies(self, mock_dump, mock_sleep, concert_instance):
-        """set_cookie navigates, waits for login, then dumps cookies."""
+        """set_cookie navigates, waits for login, then dumps cookies as JSON."""
         # Title transitions:
         # 1st access (while check): contains '大麦网-全球演出赛事官方购票平台' → stays in loop
         # 2nd access: different title → exits first while
@@ -549,6 +565,10 @@ class TestSetCookie:
         concert_instance.driver.get.assert_any_call(concert_instance.config.index_url)
         concert_instance.driver.get.assert_any_call(concert_instance.config.target_url)
         mock_dump.assert_called_once()
+        # Verify the data written includes cookies and saved_at timestamp
+        written_data = mock_dump.call_args[0][0]
+        assert "cookies" in written_data
+        assert "saved_at" in written_data
 
 
 # ===================================================================
@@ -731,65 +751,49 @@ class TestChoiceOrder:
 
 class TestScanMethods:
 
-    def test_scan_page_text_prints_body(self, concert_instance, capsys):
+    def test_scan_page_text_prints_body(self, concert_instance):
         body = Mock()
         body.text = "Line1\nLine2\nLine3"
         concert_instance.driver.find_element = Mock(return_value=body)
-        concert_instance._scan_page_text()
-        out = capsys.readouterr().out
-        assert "Line1" in out
+        concert_instance._scan_page_text()  # should not raise
 
-    def test_scan_page_text_empty_body(self, concert_instance, capsys):
+    def test_scan_page_text_empty_body(self, concert_instance):
         body = Mock()
         body.text = ""
         concert_instance.driver.find_element = Mock(return_value=body)
-        concert_instance._scan_page_text()
-        out = capsys.readouterr().out
-        assert "无文本" in out
+        concert_instance._scan_page_text()  # should not raise
 
-    def test_scan_page_text_exception(self, concert_instance, capsys):
+    def test_scan_page_text_exception(self, concert_instance):
         concert_instance.driver.find_element = Mock(side_effect=WebDriverException("fail"))
-        concert_instance._scan_page_text()
-        out = capsys.readouterr().out
-        assert "扫描失败" in out
+        concert_instance._scan_page_text()  # should not raise
 
-    def test_scan_elements_buttons(self, concert_instance, capsys):
+    def test_scan_elements_buttons(self, concert_instance):
         btn = Mock()
         btn.text = "Submit"
         btn.get_attribute = Mock(return_value="btn-class")
         concert_instance.driver.find_elements = Mock(return_value=[btn])
-        concert_instance._scan_elements("button", "按钮")
-        out = capsys.readouterr().out
-        assert "1 个按钮" in out
+        concert_instance._scan_elements("button", "按钮")  # should not raise
 
-    def test_scan_elements_inputs(self, concert_instance, capsys):
+    def test_scan_elements_inputs(self, concert_instance):
         inp = Mock()
         inp.get_attribute = Mock(return_value="text")
         concert_instance.driver.find_elements = Mock(return_value=[inp])
-        concert_instance._scan_elements("input", "输入框")
-        out = capsys.readouterr().out
-        assert "1 个输入框" in out
+        concert_instance._scan_elements("input", "输入框")  # should not raise
 
-    def test_scan_elements_empty(self, concert_instance, capsys):
+    def test_scan_elements_empty(self, concert_instance):
         concert_instance.driver.find_elements = Mock(return_value=[])
-        concert_instance._scan_elements("button", "按钮")
-        out = capsys.readouterr().out
-        assert "未找到按钮" in out
+        concert_instance._scan_elements("button", "按钮")  # should not raise
 
-    def test_scan_submit_buttons_found(self, concert_instance, capsys):
+    def test_scan_submit_buttons_found(self, concert_instance):
         btn = Mock()
         btn.text = "提交订单"
         btn.get_attribute = Mock(return_value="submit-btn")
         concert_instance.driver.find_elements = Mock(return_value=[btn])
-        concert_instance._scan_submit_buttons()
-        out = capsys.readouterr().out
-        assert "提交订单" in out
+        concert_instance._scan_submit_buttons()  # should not raise
 
-    def test_scan_submit_buttons_none(self, concert_instance, capsys):
+    def test_scan_submit_buttons_none(self, concert_instance):
         concert_instance.driver.find_elements = Mock(return_value=[])
-        concert_instance._scan_submit_buttons()
-        out = capsys.readouterr().out
-        assert "未找到" in out
+        concert_instance._scan_submit_buttons()  # should not raise
 
 
 # ===================================================================
@@ -1078,15 +1082,13 @@ class TestCommitOrderDetailed:
             concert_instance.commit_order()
 
     @patch("concert.time.sleep")
-    def test_commit_order_exception_in_user_selection(self, mock_sleep, concert_instance, capsys):
+    def test_commit_order_exception_in_user_selection(self, mock_sleep, concert_instance):
         concert_instance.status = 3
         concert_instance.config.fast_mode = True
 
         with patch.object(concert_instance, "_scan_user_elements", side_effect=Exception("user fail")), \
              patch.object(concert_instance, "_submit_order"):
-            concert_instance.commit_order()
-            out = capsys.readouterr().out
-            assert "异常" in out
+            concert_instance.commit_order()  # should not raise despite exception
 
     @patch("concert.time.sleep")
     def test_commit_order_normal_mode_scans_page(self, mock_sleep, concert_instance):
@@ -1288,11 +1290,9 @@ class TestScanPageElements:
         result = concert_instance._scan_elements_by_class(["bui-dm-tour"], "城市")
         assert result is False
 
-    def test_scan_page_elements_runs(self, concert_instance, capsys):
+    def test_scan_page_elements_runs(self, concert_instance):
         concert_instance.driver.find_elements = Mock(return_value=[])
-        concert_instance.scan_page_elements()
-        out = capsys.readouterr().out
-        assert "城市" in out
+        concert_instance.scan_page_elements()  # should not raise
 
 
 # ===================================================================

@@ -8,8 +8,16 @@ Extracted from concert.py to handle:
 - Generic element scanning and click helpers
 """
 
+import sys
+import os
 import time
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from shared.xpath_utils import escape_xpath_string
+from logger import get_logger
+
+logger = get_logger(__name__)
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import (
     NoSuchElementException,
@@ -72,11 +80,11 @@ class TicketSelector:
             bool: True if an element was successfully clicked
         """
         skip_keywords = skip_keywords or []
-        xpath = f"//*[contains(text(), '{search_text}')]"
+        xpath = f"//*[contains(text(), {escape_xpath_string(search_text)})]"
         elements = self.driver.find_elements(By.XPATH, xpath)
 
         if print_results:
-            print(f"  找到 {len(elements)} 个包含 '{search_text}' 的元素")
+            logger.debug(f"  找到 {len(elements)} 个包含 '{search_text}' 的元素")
 
         for idx, elem in enumerate(elements[:max_results]):
             try:
@@ -85,7 +93,7 @@ class TicketSelector:
                     continue
 
                 if print_results and len(elem_text) < 100:
-                    print(f"    [{idx}] {elem_text}")
+                    logger.debug(f"    [{idx}] {elem_text}")
 
                 for target in [elem, elem.find_element(By.XPATH, '..')]:
                     try:
@@ -93,7 +101,7 @@ class TicketSelector:
                         wait_time = 0.2 if self.config.fast_mode else 0.5
                         time.sleep(wait_time)
                         if print_results:
-                            print(f"  ✓ 已点击: {elem_text}")
+                            logger.debug(f"  ✓ 已点击: {elem_text}")
                         return True
                     except (ElementClickInterceptedException, StaleElementReferenceException, WebDriverException):
                         continue
@@ -101,7 +109,7 @@ class TicketSelector:
                 continue
 
         if print_results:
-            print(f"  ⚠ 未找到匹配的元素")
+            logger.warning(f"  ⚠ 未找到匹配的元素")
         return False
 
     def click_element_by_text(self, text_content, tag_names=None, exact_match=False):
@@ -155,7 +163,7 @@ class TicketSelector:
                 ).find_elements(value='tour-card', by=By.CLASS_NAME)
 
                 if not self.config.fast_mode:
-                    print(f"  找到 {len(city_name_element_list)} 个城市选项:\n")
+                    logger.debug(f"  找到 {len(city_name_element_list)} 个城市选项:\n")
                     cities = []
                     for city_elem in city_name_element_list:
                         try:
@@ -165,14 +173,13 @@ class TicketSelector:
                         except StaleElementReferenceException:
                             pass
                     for idx, city_text in enumerate(cities):
-                        print(f"    [{idx}] {city_text}")
-                    print()
+                        logger.debug(f"    [{idx}] {city_text}")
 
                 for city_name_element in city_name_element_list:
                     try:
                         if self.config.city in city_name_element.text:
                             if not self.config.fast_mode:
-                                print(f"  ✓ 匹配成功: {city_name_element.text}\n")
+                                logger.debug(f"  ✓ 匹配成功: {city_name_element.text}")
                             city_name_element.click()
                             time.sleep(0.1 if self.config.fast_mode else 0.2)
                             return True
@@ -180,7 +187,7 @@ class TicketSelector:
                         continue
 
             if not self.config.fast_mode:
-                print(f"  尝试通用文本搜索...")
+                logger.debug(f"  尝试通用文本搜索...")
             return self.find_and_click_element(
                 self.config.city,
                 max_results=10,
@@ -189,7 +196,7 @@ class TicketSelector:
 
         except Exception as e:
             if not self.config.fast_mode:
-                print(f"  城市选择异常: {e}")
+                logger.warning(f"  城市选择异常: {e}")
             return False
 
     def select_date_on_page_pc(self):
@@ -201,7 +208,7 @@ class TicketSelector:
                 ).find_elements(value='bui-dm-sku-card-item', by=By.CLASS_NAME)
 
                 if not self.config.fast_mode:
-                    print(f"  找到 {len(order_name_element_list)} 个场次选项:\n")
+                    logger.debug(f"  找到 {len(order_name_element_list)} 个场次选项:")
                     dates = []
                     for elem in order_name_element_list:
                         try:
@@ -211,25 +218,24 @@ class TicketSelector:
                         except StaleElementReferenceException:
                             pass
                     for idx, text in enumerate(dates):
-                        print(f"    [{idx}] {text}")
-                    print()
+                        logger.debug(f"    [{idx}] {text}")
 
                 if self.select_option_by_config(self.config.dates, order_name_element_list):
                     return True
 
             if not self.config.fast_mode:
-                print(f"  尝试通用文本搜索...")
+                logger.debug(f"  尝试通用文本搜索...")
             for date in self.config.dates:
                 if self.find_and_click_element(date, max_results=10, skip_keywords=['无票', '售罄'], print_results=not self.config.fast_mode):
                     return True
 
             if not self.config.fast_mode:
-                print(f"  ⚠ 未找到匹配的场次")
+                logger.warning(f"  ⚠ 未找到匹配的场次")
             return False
 
         except WebDriverException as e:
             if not self.config.fast_mode:
-                print(f"  场次选择异常: {e}")
+                logger.warning(f"  场次选择异常: {e}")
             return False
 
     def select_price_on_page_pc(self):
@@ -239,7 +245,7 @@ class TicketSelector:
                 sku_name_element_list = self.driver.find_elements(value='item-content', by=By.CLASS_NAME)
 
                 if not self.config.fast_mode:
-                    print(f"  找到 {len(sku_name_element_list)} 个票价选项:\n")
+                    logger.debug(f"  找到 {len(sku_name_element_list)} 个票价选项:")
                     prices = []
                     for elem in sku_name_element_list:
                         try:
@@ -249,25 +255,24 @@ class TicketSelector:
                         except StaleElementReferenceException:
                             pass
                     for idx, text in enumerate(prices):
-                        print(f"    [{idx}] {text}")
-                    print()
+                        logger.debug(f"    [{idx}] {text}")
 
                 if self.select_option_by_config(self.config.prices, sku_name_element_list, ['缺', '售罄', '无票']):
                     return True
 
             if not self.config.fast_mode:
-                print(f"  尝试通用文本搜索...")
+                logger.debug(f"  尝试通用文本搜索...")
             for price in self.config.prices:
                 if self.find_and_click_element(price, max_results=15, skip_keywords=['缺货', '售罄', '无票'], print_results=not self.config.fast_mode):
                     return True
 
             if not self.config.fast_mode:
-                print(f"  ⚠ 未找到匹配的票价")
+                logger.warning(f"  ⚠ 未找到匹配的票价")
             return False
 
         except WebDriverException as e:
             if not self.config.fast_mode:
-                print(f"  票价选择异常: {e}")
+                logger.warning(f"  票价选择异常: {e}")
             return False
 
     def select_quantity_on_page_pc(self):
@@ -288,61 +293,60 @@ class TicketSelector:
             )
         except WebDriverException as e:
             if not self.config.fast_mode:
-                print(f"  城市选择异常: {e}")
+                logger.warning(f"  城市选择异常: {e}")
             return False
 
     def select_date_on_page(self):
         """Select date/session on the mobile details page."""
         try:
             if not self.config.fast_mode:
-                print(f"  搜索场次: {self.config.dates}")
+                logger.debug(f"  搜索场次: {self.config.dates}")
             for date in self.config.dates:
                 if self.find_and_click_element(date, max_results=10, skip_keywords=['无票', '售罄'], print_results=not self.config.fast_mode):
                     if not self.config.fast_mode:
-                        print(f"  ✓ 已选择场次: {date}\n")
+                        logger.debug(f"  ✓ 已选择场次: {date}")
                     return True
 
             if not self.config.fast_mode:
-                print(f"  ⚠ 未找到匹配的场次")
+                logger.warning(f"  ⚠ 未找到匹配的场次")
             return False
         except WebDriverException as e:
             if not self.config.fast_mode:
-                print(f"  场次选择异常: {e}")
+                logger.warning(f"  场次选择异常: {e}")
             return False
 
     def select_price_on_page(self):
         """Select ticket price on the mobile details page."""
         try:
             if not self.config.fast_mode:
-                print("  扫描票价元素...")
+                logger.debug("  扫描票价元素...")
                 price_candidates = self.driver.find_elements(By.XPATH, "//*[contains(text(), '¥') or contains(text(), '元')]")
                 seen = set()
                 for elem in price_candidates[:15]:
                     try:
                         text = elem.text.strip()
                         if text and text not in seen and len(text) < 50:
-                            print(f"    - {text}")
+                            logger.debug(f"    - {text}")
                             seen.add(text)
                     except StaleElementReferenceException:
                         pass
-                print()
 
             for price in self.config.prices:
                 if not self.config.fast_mode:
-                    print(f"  尝试匹配: {price}")
+                    logger.debug(f"  尝试匹配: {price}")
                 if self.find_and_click_element(price, max_results=10,
                                                skip_keywords=['缺货', '售罄', '无票'],
                                                print_results=not self.config.fast_mode):
                     if not self.config.fast_mode:
-                        print(f"  ✓ 已选择票价: {price}\n")
+                        logger.debug(f"  ✓ 已选择票价: {price}")
                     return True
 
             if not self.config.fast_mode:
-                print(f"  ⚠ 未找到匹配的票价")
+                logger.warning(f"  ⚠ 未找到匹配的票价")
             return False
         except WebDriverException as e:
             if not self.config.fast_mode:
-                print(f"  票价选择异常: {e}")
+                logger.warning(f"  票价选择异常: {e}")
             return False
 
     def select_quantity_on_page(self, platform="移动端"):
@@ -356,7 +360,7 @@ class TicketSelector:
         """
         try:
             target_count = len(self.config.users)
-            print(f"  【{platform}详情页】目标数量: {target_count} 张")
+            logger.info(f"  【{platform}详情页】目标数量: {target_count} 张")
 
             success = self.try_select_quantity_by_buttons(target_count)
 
@@ -364,20 +368,20 @@ class TicketSelector:
                 success = self.try_set_quantity_directly(target_count)
 
             if not success:
-                print(f"  ⚠ 未找到数量选择器，将使用默认数量 (1 张)")
+                logger.warning(f"  ⚠ 未找到数量选择器，将使用默认数量 (1 张)")
 
             return True
 
         except (AttributeError, TypeError, ValueError) as e:
-            print(f"  ❌ 数量选择配置错误: {e}")
+            logger.error(f"  ❌ 数量选择配置错误: {e}")
             return True
         except WebDriverException as e:
-            print(f"  ⚠ WebDriver 异常，继续执行: {e}")
+            logger.warning(f"  ⚠ WebDriver 异常，继续执行: {e}")
             return True
         except Exception as e:
             # Intentional broad catch: quantity selection must never block the
             # ticket-grabbing flow; any unexpected error is logged and ignored.
-            print(f"  ⚠ 未预期的异常: {e}")
+            logger.warning(f"  ⚠ 未预期的异常: {e}")
             return True
 
     def try_select_quantity_by_buttons(self, target_count):
@@ -401,7 +405,7 @@ class TicketSelector:
             try:
                 plus_btns = self.driver.find_elements(By.XPATH, selector)
                 if plus_btns:
-                    print(f"    ✓ 找到 + 按钮 ({method_name}): {len(plus_btns)} 个")
+                    logger.debug(f"    ✓ 找到 + 按钮 ({method_name}): {len(plus_btns)} 个")
                     if self.click_plus_buttons(plus_btns, target_count):
                         return True
             except (NoSuchElementException, WebDriverException):
@@ -432,9 +436,9 @@ class TicketSelector:
 
                     current_val = self.get_quantity_input_value()
                     if current_val:
-                        print(f"    输入框当前值: {current_val}")
+                        logger.debug(f"    输入框当前值: {current_val}")
 
-                    print(f"  ✓ 已选择 {target_count} 张票")
+                    logger.info(f"  ✓ 已选择 {target_count} 张票")
                     return True
             except StaleElementReferenceException:
                 continue
@@ -475,7 +479,7 @@ class TicketSelector:
         try:
             input_selector = "//input[contains(@class, 'cafe-c-input-number-input')]"
             input_elem = self.driver.find_element(By.XPATH, input_selector)
-            print(f"    找到输入框，直接设置值")
+            logger.debug(f"    找到输入框，直接设置值")
 
             self.driver.execute_script(f"""
                 arguments[0].value = '{target_count}';
@@ -489,15 +493,15 @@ class TicketSelector:
 
             time.sleep(0.3)
             new_val = input_elem.get_attribute('value')
-            print(f"    设置后输入框值: {new_val}")
+            logger.debug(f"    设置后输入框值: {new_val}")
 
             if new_val == str(target_count):
-                print(f"  ✓ 已选择 {target_count} 张票")
+                logger.info(f"  ✓ 已选择 {target_count} 张票")
                 return True
         except NoSuchElementException:
             pass
         except (JavascriptException, WebDriverException) as e:
-            print(f"    直接设置输入框失败: {e}")
+            logger.error(f"    直接设置输入框失败: {e}")
 
         return False
 
@@ -511,18 +515,18 @@ class TicketSelector:
         Returns:
             bool: True if any matching elements were found
         """
-        print(f"  🔍 扫描{label}...")
+        logger.debug(f"  🔍 扫描{label}...")
         try:
             for selector in class_names:
                 try:
                     elements = self.driver.find_elements(By.CLASS_NAME, selector)
                     if elements:
-                        print(f"  ✓ 找到 class='{selector}': {len(elements)} 个")
+                        logger.debug(f"  ✓ 找到 class='{selector}': {len(elements)} 个")
                         for idx, elem in enumerate(elements[:3]):
                             try:
                                 text = elem.text.strip()[:50]
                                 if text:
-                                    print(f"      [{idx}] {text}")
+                                    logger.debug(f"      [{idx}] {text}")
                             except StaleElementReferenceException:
                                 pass
                         return True
@@ -530,25 +534,25 @@ class TicketSelector:
                     pass
             return False
         except WebDriverException as e:
-            print(f"    扫描失败: {e}")
+            logger.error(f"    扫描失败: {e}")
             return False
 
     def scan_page_elements(self):
         """Scan page elements for debugging purposes."""
         try:
-            print("【1】查找城市相关元素:")
+            logger.info("【1】查找城市相关元素:")
             city_selectors = ['bui-dm-tour', 'tour-list', 'city-list', 'sku-tour']
             self.scan_elements_by_class(city_selectors, "城市")
 
-            print("\n【2】查找场次相关元素:")
+            logger.info("【2】查找场次相关元素:")
             date_selectors = ['sku-times-card', 'sku-times', 'date-list', 'tour-list']
             self.scan_elements_by_class(date_selectors, "场次")
 
-            print("\n【3】查找票价相关元素:")
+            logger.info("【3】查找票价相关元素:")
             price_selectors = ['sku-tickets-card', 'sku-ticket', 'price-list', 'ticket-list']
             self.scan_elements_by_class(price_selectors, "票价")
 
-            print("\n【4】查找所有包含日期的文本:")
+            logger.info("【4】查找所有包含日期的文本:")
             try:
                 all_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), '月') or contains(text(), '日')]")
                 seen = set()
@@ -556,14 +560,14 @@ class TicketSelector:
                     try:
                         text = elem.text.strip()
                         if text and 3 < len(text) < 100 and text not in seen:
-                            print(f"  - {text}")
+                            logger.info(f"  - {text}")
                             seen.add(text)
                     except StaleElementReferenceException:
                         pass
             except WebDriverException:
                 pass
 
-            print("\n【5】查找所有包含价格的文本:")
+            logger.info("【5】查找所有包含价格的文本:")
             try:
                 all_elements = self.driver.find_elements(By.XPATH, "//*[contains(text(), '¥') or contains(text(), '元')]")
                 seen = set()
@@ -571,7 +575,7 @@ class TicketSelector:
                     try:
                         text = elem.text.strip()
                         if text and text not in seen and len(text) < 50:
-                            print(f"  - {text}")
+                            logger.info(f"  - {text}")
                             seen.add(text)
                     except StaleElementReferenceException:
                         pass
@@ -579,4 +583,4 @@ class TicketSelector:
                 pass
 
         except WebDriverException as e:
-            print(f"  扫描异常: {e}")
+            logger.warning(f"  扫描异常: {e}")

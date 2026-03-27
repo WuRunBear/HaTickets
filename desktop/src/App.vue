@@ -51,6 +51,11 @@ async function checkVersion() {
             }
         );
 
+        if (!res.ok) {
+            console.warn(`版本检查失败: HTTP ${res.status}`)
+            return
+        }
+
         let json = await res.json();
         if (Array.isArray(json) && json.length) {
             let tag_name = json[0].tag_name;

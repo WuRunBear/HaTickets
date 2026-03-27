@@ -23,6 +23,13 @@ const log = new Log();
 const retryMax = 10;
 const inputWidth = 320;
 
+const formRef = ref(null);
+const rules = {
+    cookie: [{ required: true, minLength: 20, message: 'Cookie 不能为空且长度需≥20' }],
+    url: [{ required: true, match: /^https?:\/\//, message: '请输入有效 URL（以 http:// 或 https:// 开头）' }],
+    itemId: [{ required: true, match: /^\d+$/, message: 'itemId 必须为纯数字' }],
+};
+
 const form = reactive({
     cookie: "",
     itemId: "",
@@ -215,7 +222,7 @@ function userChange(valList) {
 
 <template>
     <section>
-        <a-form :model="form" :style="{ width: '800px' }" @submit="handleSubmit">
+        <a-form ref="formRef" :model="form" :rules="rules" :style="{ width: '800px' }" @submit="handleSubmit">
             <a-form-item field="cookie" label="cookie" required>
                 <template #extra>
                     <div>进入商品页面，http请求头里的cookie</div>
@@ -226,7 +233,7 @@ function userChange(valList) {
                 </div>
             </a-form-item>
 
-            <a-form-item field="url" label="url">
+            <a-form-item field="url" label="url" required>
                 <div :style="{ width: inputWidth + 'px' }">
                     <a-input v-model="form.url" placeholder="请输入商品详情页url" />
                 </div>

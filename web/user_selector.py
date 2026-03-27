@@ -7,8 +7,16 @@ Extracted from concert.py to handle:
 - Four different strategies for selecting users (checkboxes, divs, JS clicks)
 """
 
+import sys
+import os
 import time
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from shared.xpath_utils import escape_xpath_string
+from logger import get_logger
+
+logger = get_logger(__name__)
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import (
     NoSuchElementException,
@@ -42,22 +50,22 @@ class UserSelector:
         Returns:
             bool: True if any user elements were found
         """
-        print("  🔍 扫描购票人元素...")
+        logger.debug("  🔍 扫描购票人元素...")
 
         for attempt in range(retry_count):
             if attempt > 0:
-                print(f"  第 {attempt + 1} 次尝试...")
+                logger.debug(f"  第 {attempt + 1} 次尝试...")
                 time.sleep(retry_interval)
 
             try:
                 found_any = False
                 for user in self.config.users:
-                    xpath = f"//*[contains(text(), '{user}')]"
+                    xpath = f"//*[contains(text(), {escape_xpath_string(user)})]"
                     user_elements = self.driver.find_elements(By.XPATH, xpath)
 
                     if user_elements:
                         if not found_any and attempt == 0:
-                            print(f"  找到 {len(user_elements)} 个包含 '{user}' 的元素")
+                            logger.debug(f"  找到 {len(user_elements)} 个包含 '{user}' 的元素")
                         found_any = True
                         if attempt == 0:
                             for idx, elem in enumerate(user_elements[:3]):
@@ -65,25 +73,23 @@ class UserSelector:
                                     text = elem.text.strip()
                                     tag = elem.tag_name
                                     class_attr = elem.get_attribute('class') or ''
-                                    print(f"    [{idx}] <{tag}> class='{class_attr}' text='{text}'")
+                                    logger.debug(f"    [{idx}] <{tag}> class='{class_attr}' text='{text}'")
                                 except StaleElementReferenceException:
                                     pass
                     else:
                         if attempt == 0:
-                            print(f"  ⚠ 未找到包含 '{user}' 的元素")
+                            logger.warning(f"  ⚠ 未找到包含 '{user}' 的元素")
 
                 if found_any:
                     if attempt > 0:
-                        print(f"  ✓ 第 {attempt + 1} 次尝试成功找到用户元素")
-                    print()
+                        logger.debug(f"  ✓ 第 {attempt + 1} 次尝试成功找到用户元素")
                     return True
 
             except WebDriverException as e:
                 if attempt == 0:
-                    print(f"  扫描异常: {e}")
+                    logger.warning(f"  扫描异常: {e}")
 
-        print(f"  ⚠ {retry_count} 次尝试后仍未找到用户元素")
-        print()
+        logger.warning(f"  ⚠ {retry_count} 次尝试后仍未找到用户元素")
         return False
 
     def try_select_user_method1(self, user, users_to_select, user_selected):
@@ -92,15 +98,15 @@ class UserSelector:
             return user_selected
 
         try:
-            print(f"    尝试方法1: 查找并点击包含用户名的div")
-            xpath_expression = f"//div[contains(text(), '{user}')]"
+            logger.debug(f"    尝试方法1: 查找并点击包含用户名的div")
+            xpath_expression = f"//div[contains(text(), {escape_xpath_string(user)})]"
             user_elements = self.driver.find_elements(By.XPATH, xpath_expression)
 
             if not user_elements:
-                print(f"      未找到包含 '{user}' 的div")
+                logger.debug(f"      未找到包含 '{user}' 的div")
                 return user_selected
 
-            print(f"      找到 {len(user_elements)} 个包含 '{user}' 的div")
+            logger.debug(f"      找到 {len(user_elements)} 个包含 '{user}' 的div")
 
             best_match = None
             for elem in user_elements:
@@ -116,7 +122,7 @@ class UserSelector:
                     continue
 
             if not best_match:
-                print(f"      未找到合适的div元素")
+                logger.debug(f"      未找到合适的div元素")
                 return user_selected
 
             checkbox_selectors = [
@@ -140,18 +146,18 @@ class UserSelector:
                     checkbox = best_match.find_element(By.XPATH, selector)
                     elem_tag = checkbox.tag_name
                     elem_class = checkbox.get_attribute('class') or ''
-                    print(f"        找到可点击元素: <{elem_tag}> class='{elem_class}'")
+                    logger.debug(f"        找到可点击元素: <{elem_tag}> class='{elem_class}'")
                     self.driver.execute_script("arguments[0].click();", checkbox)
-                    print(f"  ✓ 已选择: {user}\n")
+                    logger.info(f"  ✓ 已选择: {user}")
                     time.sleep(self._get_wait_time())
                     return user_selected + 1
                 except (NoSuchElementException, JavascriptException, WebDriverException):
                     continue
 
-            print(f"        未找到复选框/icon，直接点击div本身")
+            logger.debug(f"        未找到复选框/icon，直接点击div本身")
             try:
                 self.driver.execute_script("arguments[0].click();", best_match)
-                print(f"  ✓ 已点击: {user}\n")
+                logger.info(f"  ✓ 已点击: {user}")
                 time.sleep(self._get_wait_time())
                 return user_selected + 1
             except JavascriptException:
@@ -159,14 +165,14 @@ class UserSelector:
                     self.driver.execute_script("arguments[0].scrollIntoView(true);", best_match)
                     time.sleep(0.2)
                     self.driver.execute_script("arguments[0].click();", best_match)
-                    print(f"  ✓ 已点击（滚动后）: {user}\n")
+                    logger.info(f"  ✓ 已点击（滚动后）: {user}")
                     time.sleep(self._get_wait_time())
                     return user_selected + 1
                 except (JavascriptException, WebDriverException) as e:
-                    print(f"        点击失败: {e}")
+                    logger.error(f"        点击失败: {e}")
 
         except WebDriverException as e:
-            print(f"    方法1失败: {e}")
+            logger.warning(f"    方法1失败: {e}")
 
         return user_selected
 
@@ -176,12 +182,12 @@ class UserSelector:
             return user_selected
 
         try:
-            print(f"    尝试方法2: 查找所有复选框")
+            logger.debug(f"    尝试方法2: 查找所有复选框")
             all_checkboxes = self.driver.find_elements(By.XPATH, "//input[@type='checkbox']")
             all_labels = self.driver.find_elements(By.TAG_NAME, 'label')
 
-            print(f"      找到 {len(all_checkboxes)} 个复选框")
-            print(f"      找到 {len(all_labels)} 个标签")
+            logger.debug(f"      找到 {len(all_checkboxes)} 个复选框")
+            logger.debug(f"      找到 {len(all_labels)} 个标签")
 
             for label in all_labels:
                 try:
@@ -192,8 +198,8 @@ class UserSelector:
                             checkbox = self.driver.find_element(By.ID, label_for)
                             if not checkbox.is_selected():
                                 checkbox.click()
-                                print(f"        通过label选择: {label_text}")
-                                print(f"  ✓ 已选择: {user}\n")
+                                logger.debug(f"        通过label选择: {label_text}")
+                                logger.info(f"  ✓ 已选择: {user}")
                                 time.sleep(self._get_wait_time())
                                 return user_selected + 1
                 except (StaleElementReferenceException, NoSuchElementException,
@@ -209,8 +215,8 @@ class UserSelector:
                         if user in nearby_text:
                             if not checkbox.is_selected():
                                 checkbox.click()
-                                print(f"        通过附近文本选择: {nearby_text}")
-                                print(f"  ✓ 已选择: {user}\n")
+                                logger.debug(f"        通过附近文本选择: {nearby_text}")
+                                logger.info(f"  ✓ 已选择: {user}")
                                 time.sleep(self._get_wait_time())
                                 return user_selected + 1
                     except (StaleElementReferenceException, NoSuchElementException,
@@ -218,7 +224,7 @@ class UserSelector:
                         continue
 
         except WebDriverException as e:
-            print(f"    方法2失败: {e}")
+            logger.warning(f"    方法2失败: {e}")
 
         return user_selected
 
@@ -228,24 +234,24 @@ class UserSelector:
             return user_selected
 
         try:
-            print(f"    尝试方法3: 点击包含用户名的元素")
-            xpath = f"//*[contains(text(), '{user}')]"
+            logger.debug(f"    尝试方法3: 点击包含用户名的元素")
+            xpath = f"//*[contains(text(), {escape_xpath_string(user)})]"
             user_elements = self.driver.find_elements(By.XPATH, xpath)
 
             for elem in user_elements[:10]:
                 try:
                     elem_text = elem.text.strip()
                     if elem_text == user or (len(elem_text) < 30 and user in elem_text):
-                        print(f"        尝试点击: {elem_text}")
+                        logger.debug(f"        尝试点击: {elem_text}")
                         elem.click()
-                        print(f"  ✓ 已点击: {user}\n")
+                        logger.info(f"  ✓ 已点击: {user}")
                         time.sleep(self._get_wait_time())
                         return user_selected + 1
                 except (StaleElementReferenceException, ElementClickInterceptedException, WebDriverException):
                     continue
 
         except WebDriverException as e:
-            print(f"    方法3失败: {e}")
+            logger.warning(f"    方法3失败: {e}")
 
         return user_selected
 
@@ -255,7 +261,7 @@ class UserSelector:
             return user_selected
 
         try:
-            print(f"    尝试方法4: 使用JavaScript查找并点击")
+            logger.debug(f"    尝试方法4: 使用JavaScript查找并点击")
             js_script = f"""
             var divs = document.getElementsByTagName('div');
             var targetDivs = [];
@@ -271,10 +277,10 @@ class UserSelector:
             target_divs = self.driver.execute_script(js_script)
 
             if not target_divs:
-                print(f"      未找到精确匹配 '{user}' 的div")
+                logger.debug(f"      未找到精确匹配 '{user}' 的div")
                 return user_selected
 
-            print(f"      找到 {len(target_divs)} 个匹配的div")
+            logger.debug(f"      找到 {len(target_divs)} 个匹配的div")
             div = target_divs[0]
 
             find_icon_script = """
@@ -309,15 +315,15 @@ class UserSelector:
 
             try:
                 self.driver.execute_script("arguments[0].click();", target_elem)
-                print(f"      ✓ 已通过JavaScript点击: <{elem_tag}> class='{elem_class}'")
-                print(f"  ✓ 已选择: {user}\n")
+                logger.debug(f"      ✓ 已通过JavaScript点击: <{elem_tag}> class='{elem_class}'")
+                logger.info(f"  ✓ 已选择: {user}")
                 time.sleep(0.5)
                 return user_selected + 1
             except (JavascriptException, WebDriverException) as e:
-                print(f"      点击失败: {e}")
+                logger.error(f"      点击失败: {e}")
 
         except (JavascriptException, WebDriverException) as e:
-            print(f"    方法4失败: {e}")
+            logger.warning(f"    方法4失败: {e}")
 
         return user_selected
 
@@ -331,10 +337,10 @@ class UserSelector:
         user_selected = 0
 
         for i, user in enumerate(users_to_select):
-            print(f"  正在选择: {user} ({i + 1}/{ticket_count})")
+            logger.info(f"  正在选择: {user} ({i + 1}/{ticket_count})")
 
             if user_selected >= ticket_count:
-                print(f"    ⚠ 已选够 {ticket_count} 人，跳过: {user}")
+                logger.warning(f"    ⚠ 已选够 {ticket_count} 人，跳过: {user}")
                 continue
 
             new_user_selected = self.try_select_user_method1(user, users_to_select, user_selected)
@@ -354,12 +360,11 @@ class UserSelector:
                             user_selected = new_user_selected
 
             if user_selected <= i:
-                print(f"  ⚠ 未找到用户: {user}")
+                logger.warning(f"  ⚠ 未找到用户: {user}")
 
-        print(f"\n***已选择 {user_selected}/{ticket_count} 个观众***")
+        logger.info(f"***已选择 {user_selected}/{ticket_count} 个观众***")
 
         if user_selected > 0:
-            print(f"  ✓ 已选择的观众: {users_to_select[:user_selected]}")
+            logger.info(f"  ✓ 已选择的观众: {users_to_select[:user_selected]}")
         if user_selected < ticket_count:
-            print(f"  ⚠ 未选择的观众: {users_to_select[user_selected:ticket_count]}")
-        print()
+            logger.warning(f"  ⚠ 未选择的观众: {users_to_select[user_selected:ticket_count]}")

@@ -8,8 +8,16 @@ Extracted from concert.py to handle:
 - Page scanning helpers used during submission
 """
 
+import sys
+import os
 import time
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from shared.xpath_utils import escape_xpath_string
+from logger import get_logger
+
+logger = get_logger(__name__)
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import (
     NoSuchElementException,
@@ -27,27 +35,26 @@ class OrderSubmitter:
 
     def scan_page_info(self):
         """Print current page URL and title for debugging."""
-        print("  📄 页面信息:")
-        print(f"    URL: {self.driver.current_url}")
-        print(f"    标题: {self.driver.title}\n")
+        logger.info("  📄 页面信息:")
+        logger.info(f"    URL: {self.driver.current_url}")
+        logger.info(f"    标题: {self.driver.title}")
 
     def scan_page_text(self):
         """Print the first 20 lines of the page body text for debugging."""
-        print("  🔍 扫描页面文本内容...")
+        logger.info("  🔍 扫描页面文本内容...")
         try:
             body_text = self.driver.find_element(By.TAG_NAME, "body").text
             if body_text:
                 lines = body_text.split('\n')[:20]
-                print(f"    页面文本内容（前20行）:")
+                logger.info(f"    页面文本内容（前20行）:")
                 for line in lines:
                     line = line.strip()
                     if line:
-                        print(f"      {line}")
+                        logger.info(f"      {line}")
             else:
-                print("    ⚠ 页面无文本内容")
+                logger.warning("    ⚠ 页面无文本内容")
         except (NoSuchElementException, WebDriverException) as e:
-            print(f"    扫描失败: {e}")
-        print()
+            logger.error(f"    扫描失败: {e}")
 
     def scan_elements(self, tag_name, label):
         """Scan elements of the specified tag type for debugging.
@@ -56,11 +63,11 @@ class OrderSubmitter:
             tag_name: HTML tag to scan (e.g. 'button', 'input')
             label: human-readable label for log output
         """
-        print(f"  🔍 扫描所有{label}...")
+        logger.info(f"  🔍 扫描所有{label}...")
         try:
             elements = self.driver.find_elements(By.TAG_NAME, tag_name)
             if elements:
-                print(f"    找到 {len(elements)} 个{label}:")
+                logger.info(f"    找到 {len(elements)} 个{label}:")
                 for idx, elem in enumerate(elements[:10]):
                     try:
                         if tag_name == "input":
@@ -68,22 +75,21 @@ class OrderSubmitter:
                             elem_name = elem.get_attribute('name') or ''
                             elem_id = elem.get_attribute('id') or ''
                             elem_class = elem.get_attribute('class') or ''
-                            print(f"      [{idx}] type='{elem_type}' name='{elem_name}' id='{elem_id}' class='{elem_class}'")
+                            logger.info(f"      [{idx}] type='{elem_type}' name='{elem_name}' id='{elem_id}' class='{elem_class}'")
                         elif tag_name == "button":
                             btn_text = elem.text.strip()
                             btn_class = elem.get_attribute('class') or ''
-                            print(f"      [{idx}] text='{btn_text}' class='{btn_class}'")
+                            logger.info(f"      [{idx}] text='{btn_text}' class='{btn_class}'")
                     except WebDriverException:
                         pass
             else:
-                print(f"    未找到{label}")
+                logger.info(f"    未找到{label}")
         except WebDriverException as e:
-            print(f"    扫描失败: {e}")
-        print()
+            logger.error(f"    扫描失败: {e}")
 
     def scan_submit_buttons(self):
         """Scan and print candidate submit buttons for debugging."""
-        print("  🔍 扫描提交按钮...")
+        logger.info("  🔍 扫描提交按钮...")
         try:
             submit_candidates = []
 
@@ -94,7 +100,7 @@ class OrderSubmitter:
                     btn_class = btn.get_attribute('class') or ''
                     if any(keyword in btn_text for keyword in ['提交订单', '提交', '确认', '立即支付', '去支付', '支付']):
                         submit_candidates.append(('button', btn, btn_text, btn_class))
-                        print(f"    [button] text='{btn_text}' class='{btn_class}'")
+                        logger.info(f"    [button] text='{btn_text}' class='{btn_class}'")
                 except WebDriverException:
                     pass
 
@@ -107,15 +113,14 @@ class OrderSubmitter:
                             elem_class = elem.get_attribute('class') or ''
                             view_name = elem.get_attribute('view-name') or ''
                             submit_candidates.append((tag, elem, elem_text, elem_class, view_name))
-                            print(f"    [{tag}] text='{elem_text}' class='{elem_class}' view-name='{view_name}'")
+                            logger.info(f"    [{tag}] text='{elem_text}' class='{elem_class}' view-name='{view_name}'")
                     except WebDriverException:
                         pass
 
             if not submit_candidates:
-                print("    ⚠ 未找到明显的提交按钮")
+                logger.warning("    ⚠ 未找到明显的提交按钮")
         except WebDriverException as e:
-            print(f"    扫描失败: {e}")
-        print()
+            logger.error(f"    扫描失败: {e}")
 
     def try_submit_by_text(self, submit_button_texts):
         """Strategy 1-2: Find submit button by element text content.
@@ -129,25 +134,25 @@ class OrderSubmitter:
         for btn_text in submit_button_texts:
             for tag in ['button', 'div', 'span']:
                 try:
-                    xpath = f"//{tag}[contains(text(), '{btn_text}')]"
+                    xpath = f"//{tag}[contains(text(), {escape_xpath_string(btn_text)})]"
                     submit_btn = self.driver.find_element(By.XPATH, xpath)
-                    print(f"  ✓ 找到<{tag}>: {btn_text}")
+                    logger.info(f"  ✓ 找到<{tag}>: {btn_text}")
                     submit_btn.click()
-                    print('***订单已提交***\n')
+                    logger.info('***订单已提交***')
                     return True
                 except (NoSuchElementException, ElementClickInterceptedException, WebDriverException):
                     continue
 
             try:
-                xpath = f"//span[text()='{btn_text}']"
+                xpath = f"//span[text()={escape_xpath_string(btn_text)}]"
                 submit_btn = self.driver.find_element(By.XPATH, xpath)
-                print(f"  ✓ 找到<span>(精确匹配): {btn_text}")
+                logger.info(f"  ✓ 找到<span>(精确匹配): {btn_text}")
                 try:
                     parent = submit_btn.find_element(By.XPATH, '..')
                     parent.click()
                 except (NoSuchElementException, ElementClickInterceptedException, WebDriverException):
                     submit_btn.click()
-                print('***订单已提交***\n')
+                logger.info('***订单已提交***')
                 return True
             except (NoSuchElementException, ElementClickInterceptedException, WebDriverException):
                 continue
@@ -163,10 +168,10 @@ class OrderSubmitter:
         try:
             xpath = "//div[@view-name='TextView']//span[contains(text(), '提交')]"
             submit_btn = self.driver.find_element(By.XPATH, xpath)
-            print(f"  ✓ 找到div[@view-name='TextView']")
+            logger.info(f"  ✓ 找到div[@view-name='TextView']")
             parent_div = submit_btn.find_element(By.XPATH, '..')
             parent_div.click()
-            print('***订单已提交***\n')
+            logger.info('***订单已提交***')
             return True
         except (NoSuchElementException, ElementClickInterceptedException, WebDriverException):
             return False
@@ -189,9 +194,9 @@ class OrderSubmitter:
             try:
                 xpath = f"//*[contains(@class, '{class_name}')]"
                 submit_btn = self.driver.find_element(By.XPATH, xpath)
-                print(f"  ✓ 通过class找到按钮: {class_name}")
+                logger.info(f"  ✓ 通过class找到按钮: {class_name}")
                 submit_btn.click()
-                print('***订单已提交***\n')
+                logger.info('***订单已提交***')
                 return True
             except (NoSuchElementException, ElementClickInterceptedException, WebDriverException):
                 continue
@@ -208,16 +213,16 @@ class OrderSubmitter:
             submit_btn = self.driver.find_element(
                 value='//*[@id="dmOrderSubmitBlock_DmOrderSubmitBlock"]/div[2]/div/div[2]/div[2]/div[2]',
                 by=By.XPATH)
-            print("  ✓ 通过原有XPath找到按钮")
+            logger.info("  ✓ 通过原有XPath找到按钮")
             submit_btn.click()
-            print('***订单已提交***\n')
+            logger.info('***订单已提交***')
             return True
         except (NoSuchElementException, ElementClickInterceptedException, WebDriverException):
             return False
 
     def submit_order(self):
         """Try all strategies in order to submit the order."""
-        print('***准备提交订单***\n')
+        logger.info('***准备提交订单***')
 
         self.scan_submit_buttons()
 
@@ -229,4 +234,4 @@ class OrderSubmitter:
                 self.try_submit_by_original_xpath()):
             return
 
-        print(f"  ⚠ 所有方法都失败，请手动点击提交按钮\n")
+        logger.warning(f"  ⚠ 所有方法都失败，请手动点击提交按钮")
