@@ -1,10 +1,17 @@
 import { Message } from "@arco-design/web-vue";
+import {
+    DM_TOKEN_COOKIE_KEY,
+    ORDER_TAG_LIST,
+    ORDER_HIERARCHY_LIST,
+    DM_SUB_CHANNEL,
+    MSG_TOKEN_EXPIRED,
+} from "./dm-config.js";
 
 export function getToken(cookie) {
     const list = cookie.split("; ");
-    const tokenItem = list.find((item) => item.includes("_m_h5_tk="));
+    const tokenItem = list.find((item) => item.includes(`${DM_TOKEN_COOKIE_KEY}=`));
     if (tokenItem) {
-        const val = tokenItem.replace("_m_h5_tk=", "");
+        const val = tokenItem.replace(`${DM_TOKEN_COOKIE_KEY}=`, "");
         if (val) {
             return val.split("_")[0];
         }
@@ -14,8 +21,16 @@ export function getToken(cookie) {
 }
 
 export function commonTip(message) {
-    if (message.includes("令牌过期")) {
-        Message.warning("cookie过期，请重新填写");
+    if (message.includes(MSG_TOKEN_EXPIRED)) {
+        Message.warning("Cookie 已过期，请重新填写");
+    } else if (message.includes("invalid signature") || message.includes("签名错误")) {
+        Message.error(
+            "签名验证失败——可能是大麦更新了 appKey，请检查 src/utils/dm/dm-config.js 中的 DM_APP_KEY"
+        );
+    } else if (message.includes("FAIL_BIZ_NOT_OPEN")) {
+        Message.warning(
+            "接口版本可能已变更，请检查 src-tauri/src/dm_config.rs 中的 API_VERSION_* 常量"
+        );
     }
 }
 
@@ -39,7 +54,7 @@ export function combinationOrderParams(data, selectUserList) {
             // hierarchy: {},
         },
         feature: {
-            subChannel: "damai@damaih5_h5",
+            subChannel: DM_SUB_CHANNEL,
             returnUrl:
                 "https://m.damai.cn/damai/pay-success/index.html?spm=a2o71.orderconfirm.bottom.dconfirm&sqm=dianying.h5.unknown.value",
             serviceVersion: "2.0.0",
@@ -48,18 +63,7 @@ export function combinationOrderParams(data, selectUserList) {
     };
 
     // params - data
-    const tagList = [
-        "dmPayType",
-        "dmEttributesHiddenBlock",
-        "dmContactEmail",
-        "dmViewer",
-        "dmDeliverySelectCard",
-        "dmContactPhone",
-        "confirmOrder",
-        "dmDeliveryAddress",
-        "dmContactName",
-        "item",
-    ];
+    const tagList = ORDER_TAG_LIST;
 
     let localData = {};
     for (const [key, value] of Object.entries(data.data)) {
@@ -107,19 +111,7 @@ export function combinationOrderParams(data, selectUserList) {
         structure: {},
     };
     // params - hierarchy
-    let hierarchyList = [
-        "dmPayDetailPopupWindowBlock_",
-        "dmViewerBlock_DmViewerBlock",
-        "dmContactBlock_DmContactBlock",
-        "dmItemBlock_DmItemBlock",
-        "dmDeliveryWayBlock_DmDeliveryWayBlock",
-        "deliveryMethodOptions_",
-        "confirmOrder_1",
-        "dmOrderSubmitBlock_DmOrderSubmitBlock",
-        "order_",
-        "dmPayTypeBlock_DmPayTypeBlock",
-        "dmTopNotificationBlock_DmTopNotificationBlock",
-    ];
+    const hierarchyList = ORDER_HIERARCHY_LIST;
     hierarchyList.forEach((key) => {
         for (let parentKey in res.params.hierarchy) {
             if (parentKey.startsWith(key)) {
@@ -198,6 +190,5 @@ export function encode(e) {
     return t.join("&");
 }
 
-// 判断文案
-export const HAVE_ORDER = "您还有未支付订单";
-export const VALIDATE = "FAIL_SYS_USER_VALIDATE";
+// 判断文案（从配置统一导出，保持向后兼容）
+export { MSG_HAVE_ORDER as HAVE_ORDER, MSG_VALIDATE as VALIDATE } from "./dm-config.js";

@@ -1,3 +1,5 @@
+import { BAXIA_VERSIONED_URL, BAXIA_ENTRY_URL, BAXIA_INIT_DELAY_MS, BAXIA_CHECK_API_PATHS } from "./dm-config.js";
+
 // 加载必要的生成 ua token 脚本
 // Returns a Promise that resolves when both scripts load, or rejects on error/timeout
 export function loadBaxiaScript() {
@@ -26,8 +28,7 @@ export function loadBaxiaScript() {
         const awscScript = document.createElement("script");
         awscScript.type = "text/javascript";
         awscScript.crossOrigin = "anonymous";
-        awscScript.src =
-            "https://g.alicdn.com/??/AWSC/AWSC/awsc.js,/sd/baxia-entry/baxiaCommon.js";
+        awscScript.src = BAXIA_ENTRY_URL;
         awscScript.onload = onScriptLoad;
         awscScript.onerror = onScriptError;
         document.body.appendChild(awscScript);
@@ -35,8 +36,7 @@ export function loadBaxiaScript() {
         const baxiaCommonScript = document.createElement("script");
         baxiaCommonScript.type = "text/javascript";
         baxiaCommonScript.crossOrigin = "anonymous";
-        baxiaCommonScript.src =
-            "https://g.alicdn.com/??/sd/baxia/2.5.0/baxiaCommon.js";
+        baxiaCommonScript.src = BAXIA_VERSIONED_URL;
         baxiaCommonScript.onload = onScriptLoad;
         baxiaCommonScript.onerror = onScriptError;
         document.body.appendChild(baxiaCommonScript);
@@ -49,10 +49,9 @@ export function initBaxia() {
         try {
             window.baxiaCommon.init({
                 checkApiPath: function (i) {
-                    return (
-                        -1 < i.indexOf("mtop.trade.order.build.h5") ||
-                        -1 < i.indexOf("mtop.trade.order.create.h5")
-                    );
+                    return BAXIA_CHECK_API_PATHS.some(function (path) {
+                        return -1 < i.indexOf(path);
+                    });
                 },
             });
         } catch (e) {
@@ -82,4 +81,4 @@ export function getHeaderUaAndUmidtoken() {
 }
 
 // 初始化时间
-export const loadBaxiaTime = 2000;
+export const loadBaxiaTime = BAXIA_INIT_DELAY_MS;
