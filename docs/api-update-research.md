@@ -144,10 +144,15 @@ Chrome/113 → Chrome/146（2026 年 3 月最新稳定版）：
 - `BAXIA_CHECK_API_PATHS` 更新为 `["mtop.damai.item.detail.getdetail"]`
 - `initBaxia()` 补全 `paramsType`/`appendTo`/`showCallback`/`hideCallback` 参数
 
-### 4.4 订单端点 URL params — ⚠️ 低优先级
+### 4.4 订单端点 + 观演人 URL params — ✅ 已更新
 
-`order.build.h5` 和 `order.create.h5` 仍使用旧风格 params（`AntiFlood/method/tb_eagleeyex_scm_project`）。
-探测显示端点正常（返回"Session过期"），暂不改动，待实际测试中如遇问题再更新。
+`order.build.h5`、`order.create.h5`、`customerlist.get` 三个端点已统一移除旧风格参数：
+- 移除 `AntiFlood=true`
+- 移除 `method=GET/POST`
+- 移除 `tb_eagleeyex_scm_project=20190509-aone2-join-test`
+- 新增 `forceAntiCreep=true`
+
+保留的业务参数（非协议参数）：`ttid`、`globalCode`、`isSec`、`ecode`、`hasToast`、`needTbLogin`。
 
 ---
 

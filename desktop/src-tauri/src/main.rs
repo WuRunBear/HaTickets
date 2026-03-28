@@ -187,7 +187,13 @@ async fn get_ticket_detail_res(
         dm_config::API_VERSION_ORDER_BUILD,
         t, sign,
     );
-    let url = format!("{}&type=originaljson&dataType=json&v=4.0&H5Request=true&AntiCreep=true&AntiFlood=true&api=mtop.trade.order.build.h5&method=POST&ttid=%23t%23ip%23%23_h5_2014&globalCode=ali.china.damai&tb_eagleeyex_scm_project=20190509-aone2-join-test", base);
+    let url = format!(
+        "{}&type=originaljson&dataType=json&v=4.0&H5Request=true\
+         &AntiCreep=true&forceAntiCreep=true\
+         &api=mtop.trade.order.build.h5\
+         &ttid=%23t%23ip%23%23_h5_2014&globalCode=ali.china.damai",
+        base
+    );
     let mut params = HashMap::new();
     params.insert("data", data);
     params.insert("bx-ua", ua);
@@ -245,7 +251,13 @@ async fn create_order_res(
         dm_config::API_VERSION_ORDER_CREATE,
         t, sign,
     );
-    let url = format!("{}&v=4.0&post=1&type=originaljson&timeout=15000&dataType=json&isSec=1&ecode=1&AntiCreep=true&ttid=%23t%23ip%23%23_h5_2014&globalCode=ali.china.damai&tb_eagleeyex_scm_project=20190509-aone2-join-test&H5Request=true&api=mtop.trade.order.create.h5&{}", base, submitref);
+    let url = format!(
+        "{}&v=4.0&post=1&type=originaljson&timeout=15000&dataType=json\
+         &isSec=1&ecode=1&AntiCreep=true&forceAntiCreep=true\
+         &ttid=%23t%23ip%23%23_h5_2014&globalCode=ali.china.damai\
+         &H5Request=true&api=mtop.trade.order.create.h5&{}",
+        base, submitref
+    );
 
     let mut headers = get_common_headers();
     headers.insert(
@@ -298,7 +310,13 @@ async fn get_user_list_res(
         dm_config::API_VERSION_USER_LIST,
         t, sign,
     );
-    let url = format!("{}&type=originaljson&dataType=json&v=2.0&H5Request=true&AntiCreep=true&AntiFlood=true&api=mtop.damai.wireless.user.customerlist.get&method=GET&hasToast=true&needTbLogin=true&data={}", base, data);
+    let url = format!(
+        "{}&type=originaljson&dataType=json&v=2.0&H5Request=true\
+         &AntiCreep=true&forceAntiCreep=true\
+         &api=mtop.damai.wireless.user.customerlist.get\
+         &hasToast=true&needTbLogin=true&data={}",
+        base, data
+    );
 
     let mut headers = get_common_headers();
     headers.insert(
