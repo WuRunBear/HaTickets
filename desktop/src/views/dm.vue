@@ -17,7 +17,10 @@ onMounted(() => {
         let res = initBaxia();
         if (!res) {
             Message.error(
-                "初始化凭证脚本失败，本脚本将无法继续，请重新启动程序。如一直无法加载，请联系管理员修复。"
+                "凭证脚本初始化失败，抢票功能无法使用。可能原因：\n" +
+                "1. 网络无法访问阿里 CDN，请检查网络\n" +
+                "2. Baxia SDK 版本已变更，请更新 src/utils/dm/dm-config.js 中的 BAXIA_VERSIONED_URL\n" +
+                "排查后请重新启动程序。"
             );
         }
     }, loadBaxiaTime);

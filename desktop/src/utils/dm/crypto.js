@@ -1,5 +1,7 @@
+import { DM_APP_KEY } from "./dm-config.js";
+
 export function getSign(data, token) {
-    var u = "12574478",
+    var u = DM_APP_KEY,
         s = new Date().getTime(),
         c = (function (t) {
             function e(t, e) {
