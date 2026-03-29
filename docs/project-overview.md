@@ -18,7 +18,7 @@
 - **技术栈**: Python + Appium + UIAutomator2
 - **原理**: 控制 Android 真机/模拟器操作大麦 APP
 - **登录**: `noReset=true` 保持 APP 登录态
-- **特点**: 坐标级点击优化、支持真机、最接近真实购票链路
+- **特点**: 坐标级点击优化、支持真机、最接近真实购票链路、可根据 `item_url` 自动搜索并进入目标演出
 - **适合**: 想按 README 直接上手的新用户
 
 ## 其他保留方案
@@ -80,7 +80,7 @@ cd web && python damai.py
 ```bash
 poetry install
 ./mobile/scripts/start_appium.sh
-./mobile/scripts/start_ticket_grabbing.sh
+./mobile/scripts/start_ticket_grabbing.sh --yes
 ```
 
 ### 桌面端（仅历史参考）

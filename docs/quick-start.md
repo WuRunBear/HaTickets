@@ -15,12 +15,12 @@ poetry run python web/check_environment.py
 
 ### 第2步：准备抢票环境
 1. 在Android设备上打开大麦APP
-2. 搜索目标演出（如"刘若英"）
-3. 进入演出详情页面
+2. 保持大麦账号登录
+3. 如果配置了 `item_url + auto_navigate`，可以直接停留在首页；否则再手动进入演出详情页
 
 ### 第3步：开始抢票
 ```bash
-./mobile/scripts/start_ticket_grabbing.sh
+./mobile/scripts/start_ticket_grabbing.sh --yes
 ```
 
 ## ⚙️ 配置抢票参数
@@ -35,7 +35,8 @@ poetry run python web/check_environment.py
   "platform_version": "15",
   "app_package": "cn.damai",
   "app_activity": ".launcher.splash.SplashMainActivity",
-  "keyword": "刘若英",
+  "item_url": "https://m.damai.cn/shows/item.html?itemId=1016133935724",
+  "keyword": null,
   "users": [
     "观演人1",
     "观演人2"
@@ -45,11 +46,12 @@ poetry run python web/check_environment.py
   "price": "799元",
   "price_index": 1,
   "if_commit_order": true,
-  "probe_only": false
+  "probe_only": false,
+  "auto_navigate": true
 }
 ```
 
-首次使用建议先把 `probe_only` 设为 `true`，确认当前页面已经是目标演出详情页，且购票按钮和票档区域都已出现。
+首次使用建议先把 `probe_only` 设为 `true`，确认脚本能自动定位到目标演出页，且购票按钮和票档区域都已出现。
 如果改用真机，把 `adb devices` 里显示的序列号填到 `udid`。
 
 ## 🔧 常见问题解决
@@ -90,7 +92,7 @@ appium --port 4723
 3. **准备设备**：在模拟器上打开大麦APP
 也可以改成安卓真机，前提是已经打开 USB 调试并通过 `adb devices` 识别
 4. **配置参数**：编辑 `config.jsonc`
-5. **开始抢票**：`./mobile/scripts/start_ticket_grabbing.sh`
+5. **开始抢票**：`./mobile/scripts/start_ticket_grabbing.sh --yes`
 
 ## ⚠️ 重要提醒
 

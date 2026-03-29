@@ -25,7 +25,9 @@
 - `platform_version`: 可选，设备 Android 版本
 - `app_package`: 大麦 App 包名
 - `app_activity`: 大麦启动 Activity
-- `keyword`: 搜索关键词
+- `item_url`: 大麦详情页链接，脚本会自动提取 `itemId`
+- `item_id`: 可直接填数字 `itemId`
+- `keyword`: 搜索关键词；如果 `item_url` 可解析，可省略或填 `null`
 - `users`: 观演人姓名列表
 - `city`: 目标城市
 - `date`: 目标日期
@@ -33,6 +35,7 @@
 - `price_index`: 票价在列表中的索引位置
 - `if_commit_order`: 是否自动提交订单
 - `probe_only`: 仅做详情页探测，不执行购票点击
+- `auto_navigate`: 是否从大麦首页/搜索页自动进入目标演出
 - `sell_start_time`: 开售时间（ISO 格式字符串），null 表示立即购买
 - `countdown_lead_ms`: 提前轮询时间（毫秒），默认 3000
 - `fast_retry_count`: 快速重试次数（不重建 driver），默认 5
@@ -43,6 +46,7 @@
 ```
 DamaiBot.__init__()
   ├── Config.load_config()    # 读取 config.jsonc
+  ├── _prepare_runtime_config()  # 解析 item_url/item_id，必要时自动补 keyword
   └── _setup_driver()         # 初始化 Appium 连接
 
 run_with_retry(max_retries=3)
@@ -50,7 +54,7 @@ run_with_retry(max_retries=3)
         ├── dismiss_startup_popups()       # 处理首启弹窗
         ├── check_session_valid()          # 登录状态检测
         ├── probe_current_page()           # 探测当前页面状态
-        │   ├── 非 detail_page => 直接失败
+        │   ├── 非目标演出页 => navigate_to_target_event()
         │   └── probe_only => 验证控件后提前结束
         ├── wait_for_sale_start()          # 倒计时等待（可选）
         ├── 0. 选择场次日期
@@ -141,6 +145,7 @@ driver.execute_script("mobile: clickGesture", {
   - `price_container`
   - `quantity_picker`
   - `submit_button`
+- 对 `sku_page` 额外识别 `reservation_mode`，避免误把“抢票预约”当成正式下单
 - 同时输出当前 Activity，方便定位卡在首页、搜索页还是订单页
 
 **`probe_only` 模式**
@@ -148,7 +153,25 @@ driver.execute_script("mobile: clickGesture", {
 - 就绪后停止在真正购票点击前
 - 适合首次接设备、校验页面、验证选择器
 
-### 4. 抢票各步骤
+### 4. 自动导航到目标演出
+
+当配置了 `item_url` 或 `item_id` 时，脚本会在启动前先解析演出详情：
+
+- 自动提取 `itemId`
+- 读取演出名、城市、场馆、时间范围
+- 在 `keyword` 为空时自动生成搜索关键词
+- 校验 `config.city` 是否与链接指向城市一致
+
+如果当前页面不在目标演出详情页，且 `auto_navigate=true`，脚本会：
+
+1. 从首页进入搜索页
+2. 用解析出的 `keyword` 搜索
+3. 对搜索结果按标题/城市/场馆打分
+4. 点击最匹配的演出并进入详情页
+
+这一步的目标是把“用户只给链接，其余自动处理”落到项目里，而不是依赖用户先手动点到详情页。
+
+### 5. 抢票各步骤
 
 **城市选择**: 三种选择器备选
 1. `UiSelector().text("城市名")` — 精确匹配
@@ -181,17 +204,19 @@ driver.execute_script("mobile: clickGesture", {
 2. 正则匹配 `.*提交.*|.*确认.*`
 3. XPath 文本包含
 
-### 5. 重试机制
+### 6. 重试机制
 
 `run_with_retry(max_retries=3)`:
 - 最多尝试 3 次
 - 每次失败后先执行 `fast_retry_count` 次快速重试（不重建 driver）
 - 快速重试间隔由 `fast_retry_interval_ms` 控制（默认 500ms）
 - 快速重试根据当前页面状态决定策略：detail/sku 页重跑全流程，order_confirm 页直接提交，其他页按返回键后重跑
+- 如果处于 `if_commit_order=false` 且已经在确认页，快速重试只验证“立即提交”按钮存在，不会误提交
+- 如果识别到 `reservation_only`、登录失效等不可重试场景，会直接停止后续重试，缩短整体耗时
 - 全部快速重试失败后，才重建 driver（`driver.quit()` + `_setup_driver()`）
 - 全部失败则退出
 
-### 6. 倒计时/预售等待
+### 7. 倒计时/预售等待
 
 `wait_for_sale_start()`:
 - 当 `sell_start_time` 配置不为 null 时，在开售前 `countdown_lead_ms` 毫秒进入休眠等待
@@ -199,7 +224,7 @@ driver.execute_script("mobile: clickGesture", {
 - 超时 5 秒后自动继续执行，避免死锁
 - `sell_start_time` 为 null 时立即购买，不等待
 
-### 7. 订单结果验证
+### 8. 订单结果验证
 
 `verify_order_result(timeout=5)`:
 - 提交订单后轮询检测结果（300ms 间隔）
@@ -207,7 +232,7 @@ driver.execute_script("mobile: clickGesture", {
 - 通过页面文本检测：支付成功、已售罄、库存不足、验证码、未支付订单等
 - 返回值：`success` / `sold_out` / `captcha` / `existing_order` / `timeout`
 
-### 8. 登录状态检测
+### 9. 登录状态检测
 
 `check_session_valid()`:
 - 在抢票流程开始前检查登录状态
@@ -215,14 +240,14 @@ driver.execute_script("mobile: clickGesture", {
 - 检测页面是否存在"请先登录"或"登录/注册"文本提示
 - 登录失效时立即返回 False，避免无效执行
 
-### 9. 演出日期选择
+### 10. 演出日期选择
 
 `select_performance_date()`:
 - 在城市选择之前执行，通过 `UiSelector().textContains()` 匹配 `config.date`
 - 匹配成功则点击对应日期，失败则使用默认场次
 - 超时仅 1 秒，不阻塞主流程
 
-### 10. 改进的票价选择
+### 11. 改进的票价选择
 
 票价选择采用两级策略：
 1. **文本匹配优先**：通过 `UiSelector().textContains(config.price)` 直接匹配票价文本
@@ -236,10 +261,8 @@ driver.execute_script("mobile: clickGesture", {
 
 运行前需要：
 1. 用户已手动打开大麦 APP 并登录
-2. 用户已导航到目标演出的详情页
+2. 如果使用 `item_url + auto_navigate`，可以停留在首页；否则仍需手动进入目标演出详情页
 3. Appium 服务器已启动（`./mobile/scripts/start_appium.sh`）
-
-脚本从"详情页已打开"的状态开始执行，不包含搜索/导航步骤。
 
 ## MVP 验证结论
 
@@ -247,7 +270,7 @@ driver.execute_script("mobile: clickGesture", {
 - Appium + Android 模拟器 + 大麦 App 可以正常启动和探测页面
 - 大麦首启弹窗可以通过启动探测层稳定处理
 - 目标商品的 deeplink 会短暂进入 `ProjectDetailActivity`，随后回到首页，不适合作为默认导航方案
-- 因此当前推荐流程仍然是：用户手动打开目标演出详情页，再由脚本接管后续步骤
+- 当前默认方案改为：优先用 `item_url + auto_navigate` 从首页搜索进入目标演出；手动打开详情页仅作为回退方案
 
 ## 平台限制
 

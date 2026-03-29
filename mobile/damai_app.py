@@ -23,6 +23,23 @@ except ImportError:
     from config import Config
 
 try:
+    from mobile.item_resolver import (
+        DamaiItemResolver,
+        DamaiItemResolveError,
+        city_keyword,
+        extract_item_id,
+        normalize_text,
+    )
+except ImportError:
+    from item_resolver import (
+        DamaiItemResolver,
+        DamaiItemResolveError,
+        city_keyword,
+        extract_item_id,
+        normalize_text,
+    )
+
+try:
     from mobile.logger import get_logger
 except ImportError:
     from logger import get_logger
@@ -33,9 +50,53 @@ logger = get_logger(__name__)
 class DamaiBot:
     def __init__(self):
         self.config = Config.load_config()
+        self.item_detail = None
         self.driver = None
         self.wait = None
+        self._terminal_failure_reason = None
+        self._prepare_runtime_config()
         self._setup_driver()
+
+    def _set_terminal_failure(self, reason):
+        """Mark the current failure as non-retriable."""
+        self._terminal_failure_reason = reason
+
+    def _prepare_runtime_config(self):
+        """Resolve item metadata before creating the Appium session."""
+        if self.config.item_url and not self.config.item_id:
+            self.config.item_id = extract_item_id(self.config.item_url)
+
+        if not (self.config.item_url or self.config.item_id):
+            return
+
+        try:
+            self.item_detail = DamaiItemResolver().fetch_item_detail(
+                item_url=self.config.item_url,
+                item_id=self.config.item_id,
+            )
+        except (DamaiItemResolveError, ValueError) as exc:
+            if self.config.keyword:
+                logger.warning(f"解析 item_url/item_id 失败，继续使用现有 keyword: {exc}")
+                return
+            raise
+
+        self.config.item_id = self.item_detail.item_id
+        if not self.config.keyword:
+            self.config.keyword = self.item_detail.search_keyword
+            logger.info(f"已根据 item 链接自动生成搜索关键词: {self.config.keyword}")
+
+        resolved_city = self.item_detail.city_keyword or city_keyword(self.item_detail.venue_city_name)
+        config_city = city_keyword(self.config.city)
+        if resolved_city and config_city and normalize_text(resolved_city) != normalize_text(config_city):
+            raise ValueError(
+                f"配置 city={self.config.city!r} 与 item_url 指向城市={self.item_detail.city_name!r} 不一致"
+            )
+
+        logger.info(
+            f"已解析 itemId={self.item_detail.item_id}，演出={self.item_detail.item_name}，"
+            f"城市={self.item_detail.city_name}，时间={self.item_detail.show_time}，"
+            f"票价范围={self.item_detail.price_range}"
+        )
 
     def _build_capabilities(self):
         """根据配置构造 Appium capabilities。"""
@@ -208,6 +269,290 @@ class DamaiBot:
         except Exception:
             return ""
 
+    def _click_element_center(self, element, duration=50):
+        """Click the center point of an element via gesture."""
+        rect = element.rect
+        x = rect["x"] + rect["width"] // 2
+        y = rect["y"] + rect["height"] // 2
+        self.driver.execute_script(
+            "mobile: clickGesture",
+            {"x": x, "y": y, "duration": duration},
+        )
+
+    def _safe_element_text(self, container, by, value):
+        """Read the first child text if present."""
+        try:
+            elements = container.find_elements(by=by, value=value)
+        except Exception:
+            return ""
+
+        for element in elements:
+            text = (element.text or "").strip()
+            if text:
+                return text
+        return ""
+
+    def _get_detail_title_text(self):
+        """Read title text from detail/sku pages."""
+        title = ""
+        try:
+            title = self._safe_element_text(self.driver, By.ID, "cn.damai:id/title_tv")
+        except Exception:
+            title = ""
+
+        if title:
+            return title
+
+        title_parts = []
+        for resource_id in ("cn.damai:id/project_title_tv1", "cn.damai:id/project_title_tv2"):
+            part = self._safe_element_text(self.driver, By.ID, resource_id)
+            if part:
+                title_parts.append(part.strip())
+
+        return "".join(title_parts).strip()
+
+    def _title_matches_target(self, title_text):
+        """Check whether a page or search result title matches the configured target."""
+        normalized_title = normalize_text(title_text)
+        if not normalized_title:
+            return False
+
+        candidates = []
+        if self.item_detail:
+            candidates.extend([self.item_detail.item_name, self.item_detail.item_name_display])
+        if self.config.keyword:
+            candidates.append(self.config.keyword)
+
+        for candidate in candidates:
+            normalized_candidate = normalize_text(candidate)
+            if not normalized_candidate:
+                continue
+            if normalized_candidate in normalized_title or normalized_title in normalized_candidate:
+                return True
+
+        return False
+
+    def _current_page_matches_target(self, page_probe):
+        """Check if the current detail/sku page already points at the expected event."""
+        if page_probe["state"] not in {"detail_page", "sku_page"}:
+            return False
+
+        if not self.item_detail:
+            return True
+
+        return self._title_matches_target(self._get_detail_title_text())
+
+    def _recover_to_navigation_start(self, page_probe, max_back_steps=3):
+        """Recover to a navigable page such as homepage or search page."""
+        navigable_states = {"homepage", "search_page", "detail_page", "sku_page"}
+        current_probe = page_probe
+        if current_probe["state"] in navigable_states:
+            return current_probe
+
+        for _ in range(max_back_steps):
+            self.driver.press_keycode(4)
+            time.sleep(0.4)
+            current_probe = self.probe_current_page()
+            if current_probe["state"] in navigable_states:
+                return current_probe
+
+        try:
+            self.driver.activate_app(self.config.app_package)
+            time.sleep(1)
+        except Exception:
+            pass
+
+        return self.probe_current_page()
+
+    def _open_search_from_homepage(self):
+        """Enter the homepage search flow."""
+        search_selectors = [
+            (By.ID, "cn.damai:id/pioneer_homepage_header_search_btn"),
+            (By.ID, "cn.damai:id/homepage_header_search"),
+            (By.ID, "cn.damai:id/homepage_header_search_layout"),
+            (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("搜索")'),
+        ]
+
+        for by, value in search_selectors:
+            if self.ultra_fast_click(by, value, timeout=0.8):
+                search_probe = self.wait_for_page_state({"search_page"}, timeout=2.5, poll_interval=0.15)
+                if search_probe["state"] == "search_page":
+                    return True
+
+        search_probe = self.probe_current_page()
+        if search_probe["state"] == "search_page":
+            return True
+
+        logger.warning("未能从首页打开搜索页")
+        return False
+
+    def _submit_search_keyword(self):
+        """Fill the configured keyword into the Damai search box and submit."""
+        if not self.config.keyword:
+            logger.warning("缺少 keyword，无法执行自动搜索")
+            return False
+
+        try:
+            search_input = WebDriverWait(self.driver, 3).until(
+                EC.presence_of_element_located((By.ID, "cn.damai:id/header_search_v2_input"))
+            )
+        except TimeoutException:
+            logger.warning("未找到搜索输入框")
+            return False
+
+        self._click_element_center(search_input)
+        time.sleep(0.2)
+
+        current_text = (search_input.text or "").strip()
+        if current_text and current_text != self.config.keyword:
+            if self._has_element(By.ID, "cn.damai:id/header_search_v2_input_delete"):
+                self.ultra_fast_click(By.ID, "cn.damai:id/header_search_v2_input_delete", timeout=0.8)
+                time.sleep(0.1)
+            else:
+                try:
+                    search_input.clear()
+                except Exception:
+                    pass
+
+        if (search_input.text or "").strip() != self.config.keyword:
+            search_input.send_keys(self.config.keyword)
+
+        self.driver.press_keycode(66)
+        try:
+            WebDriverWait(self.driver, 5).until(
+                lambda drv: len(drv.find_elements(By.ID, "cn.damai:id/ll_search_item")) > 0
+            )
+        except TimeoutException:
+            logger.warning("搜索结果加载超时")
+            return False
+
+        if self._has_element(AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("演出")'):
+            self.smart_wait_and_click(
+                AppiumBy.ANDROID_UIAUTOMATOR,
+                'new UiSelector().text("演出")',
+                timeout=0.8,
+            )
+            time.sleep(0.2)
+
+        return True
+
+    def _score_search_result(self, title_text, venue_text):
+        """Score a search result against the configured target."""
+        normalized_title = normalize_text(title_text)
+        normalized_venue = normalize_text(venue_text)
+        if not normalized_title:
+            return -1
+
+        score = 0
+        if self._title_matches_target(title_text):
+            score += 100
+
+        normalized_keyword = normalize_text(self.config.keyword)
+        if normalized_keyword:
+            if normalized_keyword == normalized_title:
+                score += 80
+            elif normalized_keyword in normalized_title:
+                score += 50
+
+        normalized_city = normalize_text(city_keyword(self.config.city))
+        if normalized_city and normalized_city in normalized_title:
+            score += 20
+
+        if self.item_detail:
+            expected_venue = normalize_text(self.item_detail.venue_name)
+            if expected_venue and expected_venue in normalized_venue:
+                score += 20
+
+            expected_city = normalize_text(self.item_detail.city_keyword)
+            if expected_city and expected_city in normalized_title:
+                score += 10
+
+        return score
+
+    def _scroll_search_results(self):
+        """Scroll the search result list upward."""
+        self.driver.execute_script(
+            "mobile: swipeGesture",
+            {
+                "left": 96,
+                "top": 520,
+                "width": 1088,
+                "height": 1500,
+                "direction": "up",
+                "percent": 0.55,
+                "speed": 5000,
+            },
+        )
+
+    def _open_target_from_search_results(self, max_scrolls=2):
+        """Open the best-matching event from search results."""
+        seen_titles = set()
+
+        for _ in range(max_scrolls + 1):
+            result_cards = self.driver.find_elements(By.ID, "cn.damai:id/ll_search_item")
+            best_match = None
+            best_score = -1
+
+            for card in result_cards:
+                title_text = self._safe_element_text(card, By.ID, "cn.damai:id/tv_project_name")
+                venue_text = self._safe_element_text(card, By.ID, "cn.damai:id/tv_project_venueName")
+                score = self._score_search_result(title_text, venue_text)
+                if title_text:
+                    seen_titles.add(title_text)
+                if score > best_score:
+                    best_score = score
+                    best_match = card
+
+            if best_match is not None and best_score >= 60:
+                self._click_element_center(best_match)
+                detail_probe = self.wait_for_page_state({"detail_page", "sku_page"}, timeout=8)
+                if detail_probe["state"] in {"detail_page", "sku_page"} and self._current_page_matches_target(detail_probe):
+                    return True
+
+                logger.warning("已进入详情页，但标题与目标演出不一致，返回搜索结果继续尝试")
+                self.driver.press_keycode(4)
+                time.sleep(0.5)
+            else:
+                logger.info(f"本屏搜索结果未找到明确匹配项，已扫描: {len(seen_titles)} 条")
+
+            if _ < max_scrolls:
+                self._scroll_search_results()
+                time.sleep(0.4)
+
+        logger.warning("自动搜索后未找到目标演出")
+        return False
+
+    def navigate_to_target_event(self, initial_probe=None):
+        """Auto-navigate from homepage/search to the target event detail page."""
+        if not self.config.auto_navigate:
+            return False
+
+        page_probe = initial_probe or self.probe_current_page()
+        page_probe = self._recover_to_navigation_start(page_probe)
+
+        if page_probe["state"] in {"detail_page", "sku_page"} and self._current_page_matches_target(page_probe):
+            return True
+
+        if page_probe["state"] in {"detail_page", "sku_page"} and not self._current_page_matches_target(page_probe):
+            self.driver.press_keycode(4)
+            time.sleep(0.5)
+            page_probe = self.probe_current_page()
+
+        if page_probe["state"] == "homepage":
+            logger.info("当前位于首页，开始自动搜索目标演出")
+            if not self._open_search_from_homepage():
+                return False
+            page_probe = self.probe_current_page()
+
+        if page_probe["state"] != "search_page":
+            logger.warning(f"当前页面不适合自动搜索: {page_probe['state']}")
+            return False
+
+        if not self._submit_search_keyword():
+            return False
+
+        return self._open_target_from_search_results()
+
     def select_performance_date(self):
         """选择演出场次日期"""
         if not self.config.date:
@@ -316,8 +661,18 @@ class DamaiBot:
         state = page_probe["state"]
 
         if state in ("detail_page", "sku_page"):
+            if self.item_detail and not self._current_page_matches_target(page_probe):
+                logger.info("当前详情页不是目标演出，转为自动导航")
+                return self.navigate_to_target_event(page_probe) and self.run_ticket_grabbing()
             return self.run_ticket_grabbing()
         elif state == "order_confirm_page":
+            if not self.config.if_commit_order:
+                submit_selectors = [
+                    (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("立即提交")'),
+                    (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().textMatches(".*提交.*|.*确认.*")'),
+                    (By.XPATH, '//*[contains(@text,"提交")]')
+                ]
+                return self.smart_wait_for_element(*submit_selectors[0], submit_selectors[1:])
             submit_selectors = [
                 (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("立即提交")'),
                 (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().textMatches(".*提交.*|.*确认.*")'),
@@ -325,6 +680,8 @@ class DamaiBot:
             ]
             return self.smart_wait_and_click(*submit_selectors[0], submit_selectors[1:])
         else:
+            if self.config.auto_navigate:
+                return self.navigate_to_target_event(page_probe) and self.run_ticket_grabbing()
             self.driver.press_keycode(4)  # Android Back
             time.sleep(0.5)
             return self.run_ticket_grabbing()
@@ -336,7 +693,11 @@ class DamaiBot:
         popup_clicks = [
             (By.ID, "android:id/ok"),  # Android 全屏提示
             (By.ID, "cn.damai:id/id_boot_action_agree"),  # 大麦隐私协议
+            (By.ID, "cn.damai:id/damai_theme_dialog_cancel_btn"),  # 开启消息通知
             (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("Cancel")'),  # Add to home screen
+            (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("下次再说")'),
+            (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("我知道了")'),
+            (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("知道了")'),
         ]
 
         for by, value in popup_clicks:
@@ -347,6 +708,18 @@ class DamaiBot:
 
         return dismissed
 
+    def is_reservation_sku_mode(self):
+        """识别当前 SKU 页是否仍处于抢票预约流，而非正式下单流。"""
+        reservation_indicators = [
+            (By.ID, "cn.damai:id/btn_cancel_reservation"),
+            (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("预约想看场次")'),
+            (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("预约想看票档")'),
+            (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().textContains("提交抢票预约")'),
+            (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().textContains("已预约")'),
+        ]
+
+        return any(self._has_element(by, value) for by, value in reservation_indicators)
+
     def probe_current_page(self):
         """探测当前页面状态和关键控件可见性。"""
         state = "unknown"
@@ -356,12 +729,13 @@ class DamaiBot:
         sku_price_container = self._has_element(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout")
         quantity_picker = self._has_element(By.ID, "layout_num")
         submit_button = self._has_element(AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("立即提交")')
+        reservation_mode = False
 
         if self._has_element(By.ID, "cn.damai:id/id_boot_action_agree"):
             state = "consent_dialog"
         elif self._has_element(By.ID, "cn.damai:id/homepage_header_search"):
             state = "homepage"
-        elif "SearchActivity" in current_activity:
+        elif "SearchActivity" in current_activity or self._has_element(By.ID, "cn.damai:id/header_search_v2_input"):
             state = "search_page"
         elif submit_button:
             state = "order_confirm_page"
@@ -369,8 +743,12 @@ class DamaiBot:
                 self._has_element(By.ID, "cn.damai:id/layout_sku") or \
                 self._has_element(By.ID, "cn.damai:id/sku_contanier"):
             state = "sku_page"
-        elif "ProjectDetailActivity" in current_activity or purchase_button or detail_price_summary:
+        elif "ProjectDetailActivity" in current_activity or purchase_button or detail_price_summary or \
+                self._has_element(By.ID, "cn.damai:id/title_tv"):
             state = "detail_page"
+
+        if state == "sku_page":
+            reservation_mode = self.is_reservation_sku_mode()
 
         result = {
             "state": state,
@@ -378,6 +756,7 @@ class DamaiBot:
             "price_container": sku_price_container or detail_price_summary,
             "quantity_picker": quantity_picker,
             "submit_button": submit_button,
+            "reservation_mode": reservation_mode,
         }
 
         logger.info(f"当前页面状态: {result['state']}")
@@ -388,7 +767,8 @@ class DamaiBot:
             f"purchase_button={result['purchase_button']}, "
             f"price_container={result['price_container']}, "
             f"quantity_picker={result['quantity_picker']}, "
-            f"submit_button={result['submit_button']}"
+            f"submit_button={result['submit_button']}, "
+            f"reservation_mode={result['reservation_mode']}"
         )
 
         return result
@@ -396,19 +776,28 @@ class DamaiBot:
     def run_ticket_grabbing(self):
         """执行抢票主流程"""
         try:
+            self._terminal_failure_reason = None
             logger.info("开始抢票流程...")
             start_time = time.time()
 
             self.dismiss_startup_popups()
 
             if not self.check_session_valid():
+                self._set_terminal_failure("session_invalid")
                 return False
 
             page_probe = self.probe_current_page()
 
-            if page_probe["state"] not in {"detail_page", "sku_page"}:
-                logger.warning("当前不在演出详情页，请先手动打开目标演出详情页")
-                return False
+            if page_probe["state"] not in {"detail_page", "sku_page"} or \
+                    (self.item_detail and not self._current_page_matches_target(page_probe)):
+                if self.config.auto_navigate:
+                    logger.info("当前不在目标演出页，尝试自动导航")
+                    if not self.navigate_to_target_event(page_probe):
+                        return False
+                    page_probe = self.probe_current_page()
+                else:
+                    logger.warning("当前不在演出详情页，请先手动打开目标演出详情页")
+                    return False
 
             if self.config.probe_only:
                 detail_ready = page_probe["state"] == "detail_page" and page_probe["purchase_button"] and page_probe["price_container"]
@@ -451,8 +840,19 @@ class DamaiBot:
                 if not self.smart_wait_and_click(*book_selectors[0], book_selectors[1:]):
                     logger.warning("预约按钮点击失败")
                     return False
+                page_probe = self.wait_for_page_state({"sku_page", "order_confirm_page"}, timeout=5)
             else:
                 logger.info("当前已在票档选择页，跳过城市和预约按钮步骤")
+                # 新版 SKU 页会先展示日期卡片，需在此再次选择场次后才会展开票档列表。
+                self.select_performance_date()
+                page_probe = self.probe_current_page()
+
+            if page_probe["state"] == "sku_page" and page_probe.get("reservation_mode"):
+                logger.warning(
+                    "检测到当前页面仍是“预售/抢票预约”流程，继续点击底部按钮只会提交预约，不会进入订单确认页"
+                )
+                self._set_terminal_failure("reservation_only")
+                return False
 
             # 3. 票价选择 - 优化查找逻辑
             logger.info("选择票价...")
@@ -575,6 +975,10 @@ class DamaiBot:
                 logger.info("抢票成功！")
                 return True
 
+            if self._terminal_failure_reason:
+                logger.error(f"检测到不可重试失败，停止后续重试: {self._terminal_failure_reason}")
+                break
+
             # Fast retry within same session
             for fast_attempt in range(self.config.fast_retry_count):
                 logger.info(f"快速重试 {fast_attempt + 1}/{self.config.fast_retry_count}...")
@@ -582,6 +986,12 @@ class DamaiBot:
                 if self._fast_retry_from_current_state():
                     logger.info("快速重试成功！")
                     return True
+                if self._terminal_failure_reason:
+                    logger.error(f"快速重试遇到不可重试失败，停止后续重试: {self._terminal_failure_reason}")
+                    break
+
+            if self._terminal_failure_reason:
+                break
 
             # Full driver recreation
             logger.warning(f"第 {attempt + 1} 次尝试及快速重试均失败")

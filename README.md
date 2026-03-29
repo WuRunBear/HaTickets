@@ -31,7 +31,7 @@
 ![移动端抢票流程](docs/images/tickets-process.png)
 
 上图对应的是当前项目的核心思路：  
-先到演出详情页或票档页，再进入确认页；如果配置了 `if_commit_order: false`，脚本会停在“立即提交”之前，不会帮你支付。
+先定位目标演出，再进入票档页和确认页；如果配置了 `item_url + auto_navigate`，脚本可以从大麦首页自动搜到目标演出。如果配置了 `if_commit_order: false`，脚本会停在“立即提交”之前，不会帮你支付。
 
 ## 推荐阅读顺序
 
@@ -133,27 +133,32 @@ appium --port 4723
   "platform_version": "14",
   "app_package": "cn.damai",
   "app_activity": ".launcher.splash.SplashMainActivity",
-  "keyword": "周深",
+  "item_url": "https://m.damai.cn/shows/item.html?itemId=1016133935724",
+  "keyword": null,
   "users": ["你的真实观演人姓名"],
   "city": "深圳",
   "date": "12.06",
   "price": "内场1199元",
   "price_index": 5,
   "if_commit_order": false,
-  "probe_only": true
+  "probe_only": true,
+  "auto_navigate": true
 }
 ```
 
 每个字段是什么意思：
 
 - `udid`：你的手机序列号，来自 `adb devices`
+- `item_url`：大麦演出详情页链接，脚本会提取 `itemId`
+- `keyword`：搜索关键词；如果 `item_url` 可解析，可直接写 `null`
 - `users`：必须写你大麦账号里真实存在的观演人姓名
-- `city`：演出城市
+- `city`：演出城市，仍建议由你按目标演出手动确认
 - `date`：场次日期文本，按页面上看到的写
 - `price`：票档文本，尽量按页面原文填
 - `price_index`：如果文本匹配失败，就按索引兜底
 - `if_commit_order`：是否自动点“立即提交”
 - `probe_only`：是否只做页面探测
+- `auto_navigate`：是否从大麦首页/搜索页自动进入目标演出
 
 下面这张图能帮你理解 `city / date / price` 这些值通常从哪里看：
 
@@ -164,12 +169,14 @@ appium --port 4723
 先在手机上手动做两件事：
 
 1. 打开大麦 App
-2. 进入目标演出详情页，或者已经点进票档页
+2. 确保大麦账号保持登录
+
+如果你配置了 `item_url + auto_navigate: true`，可以直接停留在大麦首页，不需要手动进入目标演出详情页。
 
 然后执行：
 
 ```bash
-./mobile/scripts/start_ticket_grabbing.sh
+./mobile/scripts/start_ticket_grabbing.sh --yes
 ```
 
 如果这一步成功，说明：
@@ -191,7 +198,7 @@ appium --port 4723
 然后再次运行：
 
 ```bash
-./mobile/scripts/start_ticket_grabbing.sh
+./mobile/scripts/start_ticket_grabbing.sh --yes
 ```
 
 这一步的预期结果是：

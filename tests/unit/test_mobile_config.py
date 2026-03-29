@@ -132,6 +132,22 @@ class TestMobileConfigValidation:
         with pytest.raises(ValueError, match="keyword"):
             Config(**_make(keyword=123))
 
+    def test_keyword_can_be_none_when_item_url_is_provided(self):
+        cfg = Config(**_make(
+            keyword=None,
+            item_url="https://m.damai.cn/shows/item.html?itemId=1016133935724",
+        ))
+        assert cfg.keyword is None
+        assert cfg.item_url.endswith("1016133935724")
+
+    def test_item_id_invalid_raises(self):
+        with pytest.raises(ValueError, match="item_id"):
+            Config(**_make(item_id="abc123"))
+
+    def test_auto_navigate_non_bool_raises(self):
+        with pytest.raises(ValueError, match="auto_navigate"):
+            Config(**_make(auto_navigate="yes"))
+
     def test_if_commit_order_non_bool_raises(self):
         with pytest.raises(ValueError, match="if_commit_order"):
             Config(**_make(if_commit_order="no"))
@@ -278,3 +294,29 @@ class TestMobileConfigLoadConfig:
         assert cfg.platform_version is None
         assert cfg.price_index == 0
         assert cfg.probe_only is True
+
+    def test_load_config_accepts_item_url_without_keyword(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        config_data = {
+            "server_url": "http://127.0.0.1:4723",
+            "device_name": "Android",
+            "udid": "device-1",
+            "platform_version": "16",
+            "app_package": "cn.damai",
+            "app_activity": ".launcher.splash.SplashMainActivity",
+            "item_url": "https://m.damai.cn/shows/item.html?itemId=1016133935724",
+            "users": ["A"],
+            "city": "北京",
+            "date": "04.06",
+            "price": "380元",
+            "price_index": 0,
+            "if_commit_order": False,
+            "probe_only": True,
+            "auto_navigate": True,
+        }
+        (tmp_path / "config.jsonc").write_text(json.dumps(config_data), encoding="utf-8")
+
+        cfg = Config.load_config()
+        assert cfg.keyword is None
+        assert cfg.item_url.endswith("1016133935724")
+        assert cfg.auto_navigate is True

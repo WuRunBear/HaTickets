@@ -30,7 +30,8 @@ class Config:
                  probe_only=False, device_name="Android", udid=None, platform_version=None,
                  app_package="cn.damai", app_activity=".launcher.splash.SplashMainActivity",
                  sell_start_time=None, countdown_lead_ms=3000,
-                 fast_retry_count=5, fast_retry_interval_ms=500):
+                 fast_retry_count=5, fast_retry_interval_ms=500,
+                 item_url=None, item_id=None, auto_navigate=True):
         # Validate server_url
         validate_url(server_url, "server_url")
 
@@ -41,9 +42,11 @@ class Config:
         if not isinstance(price_index, int) or isinstance(price_index, bool) or price_index < 0:
             raise ValueError(f"price_index 必须是非负整数，实际值: {price_index!r}")
 
-        # Validate keyword
-        if not isinstance(keyword, str) or len(keyword.strip()) == 0:
-            raise ValueError(f"keyword 必须是非空字符串，实际值: {keyword!r}")
+        has_item_reference = item_url is not None or item_id is not None
+        if keyword is not None and (not isinstance(keyword, str) or len(keyword.strip()) == 0):
+            raise ValueError(f"keyword 必须是非空字符串或 null，实际值: {keyword!r}")
+        if keyword is None and not has_item_reference:
+            raise ValueError("keyword 不能为空；如果不提供 keyword，至少需要提供 item_url 或 item_id")
 
         if not isinstance(if_commit_order, bool):
             raise ValueError(f"if_commit_order 必须是布尔值，实际值: {if_commit_order!r}")
@@ -65,6 +68,15 @@ class Config:
 
         if not isinstance(app_activity, str) or len(app_activity.strip()) == 0:
             raise ValueError(f"app_activity 必须是非空字符串，实际值: {app_activity!r}")
+
+        if item_url is not None:
+            validate_url(item_url, "item_url")
+
+        if item_id is not None and (not isinstance(item_id, str) or not item_id.strip().isdigit()):
+            raise ValueError(f"item_id 必须是纯数字字符串或 null，实际值: {item_id!r}")
+
+        if not isinstance(auto_navigate, bool):
+            raise ValueError(f"auto_navigate 必须是布尔值，实际值: {auto_navigate!r}")
 
         # Validate sell_start_time
         if sell_start_time is not None:
@@ -88,7 +100,7 @@ class Config:
             raise ValueError(f"fast_retry_interval_ms 必须是非负整数，实际值: {fast_retry_interval_ms!r}")
 
         self.server_url = server_url
-        self.keyword = keyword
+        self.keyword = keyword.strip() if isinstance(keyword, str) else None
         self.users = users
         self.city = city
         self.date = date
@@ -105,6 +117,9 @@ class Config:
         self.countdown_lead_ms = countdown_lead_ms
         self.fast_retry_count = fast_retry_count
         self.fast_retry_interval_ms = fast_retry_interval_ms
+        self.item_url = item_url
+        self.item_id = item_id
+        self.auto_navigate = auto_navigate
 
     @staticmethod
     def load_config():
@@ -119,13 +134,16 @@ class Config:
         except json.JSONDecodeError as e:
             raise ValueError(f"配置文件格式错误: {e}")
 
-        required_keys = ['server_url', 'keyword', 'users', 'city', 'date', 'price', 'price_index', 'if_commit_order']
+        required_keys = ['server_url', 'users', 'city', 'date', 'price', 'price_index', 'if_commit_order']
         missing = [k for k in required_keys if k not in config]
         if missing:
             raise KeyError(f"配置文件缺少必需字段: {', '.join(missing)}")
 
+        if "keyword" not in config and "item_url" not in config and "item_id" not in config:
+            raise KeyError("配置文件缺少必需字段: keyword 或 item_url 或 item_id")
+
         return Config(config['server_url'],
-                      config['keyword'],
+                      config.get('keyword'),
                       config['users'],
                       config['city'],
                       config['date'],
@@ -141,4 +159,7 @@ class Config:
                       config.get('sell_start_time'),
                       config.get('countdown_lead_ms', 3000),
                       config.get('fast_retry_count', 5),
-                      config.get('fast_retry_interval_ms', 500))
+                      config.get('fast_retry_interval_ms', 500),
+                      config.get('item_url'),
+                      config.get('item_id'),
+                      config.get('auto_navigate', True))

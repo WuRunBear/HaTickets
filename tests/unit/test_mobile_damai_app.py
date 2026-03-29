@@ -13,6 +13,7 @@ from selenium.webdriver.common.by import By
 
 from mobile.damai_app import DamaiBot, logger as damai_logger
 from mobile.config import Config
+from mobile.item_resolver import DamaiItemDetail
 
 
 # ---------------------------------------------------------------------------
@@ -25,6 +26,20 @@ def _make_mock_element(x=100, y=200, width=50, height=40):
     el.rect = {"x": x, "y": y, "width": width, "height": height}
     el.id = "fake-element-id"
     return el
+
+
+def _make_item_detail():
+    return DamaiItemDetail(
+        item_id="1016133935724",
+        item_name="【北京】2026张杰未·LIVE—「开往1982」演唱会-北京站",
+        item_name_display="北京·2026张杰未·LIVE—「开往1982」演唱会-北京站",
+        city_name="北京市",
+        venue_name="国家体育场-鸟巢",
+        venue_city_name="北京市",
+        show_time="2026.03.29-04.19",
+        price_range="380-1680",
+        raw_data={},
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -120,6 +135,39 @@ class TestInitialization:
         assert capabilities["platformVersion"] == "14"
         assert capabilities["appPackage"] == "cn.damai"
         assert capabilities["appActivity"] == ".launcher.splash.SplashMainActivity"
+
+    def test_init_resolves_item_url_and_fills_keyword(self):
+        mock_driver = Mock()
+        mock_driver.update_settings = Mock()
+
+        mock_config = Config(
+            server_url="http://127.0.0.1:4723",
+            device_name="Android",
+            udid=None,
+            platform_version=None,
+            app_package="cn.damai",
+            app_activity=".launcher.splash.SplashMainActivity",
+            keyword=None,
+            item_url="https://m.damai.cn/shows/item.html?itemId=1016133935724",
+            users=["UserA"],
+            city="北京",
+            date="04.06",
+            price="380元",
+            price_index=0,
+            if_commit_order=False,
+            probe_only=True,
+        )
+        item_detail = _make_item_detail()
+
+        with patch("mobile.damai_app.Config.load_config", return_value=mock_config), \
+             patch("mobile.damai_app.DamaiItemResolver.fetch_item_detail", return_value=item_detail), \
+             patch("mobile.damai_app.webdriver.Remote", return_value=mock_driver), \
+             patch("mobile.damai_app.AppiumOptions"):
+            bot = DamaiBot()
+
+        assert bot.item_detail == item_detail
+        assert bot.config.item_id == "1016133935724"
+        assert bot.config.keyword == item_detail.search_keyword
 
 
 # ---------------------------------------------------------------------------
@@ -273,12 +321,90 @@ class TestSmartWaitAndClick:
 
 
 # ---------------------------------------------------------------------------
+# auto navigation
+# ---------------------------------------------------------------------------
+
+class TestAutoNavigation:
+    def test_navigate_to_target_event_from_search_page(self, bot):
+        with patch.object(bot, "_recover_to_navigation_start", return_value={"state": "search_page"}), \
+             patch.object(bot, "_submit_search_keyword", return_value=True) as submit_keyword, \
+             patch.object(bot, "_open_target_from_search_results", return_value=True) as open_target:
+            result = bot.navigate_to_target_event({"state": "unknown"})
+
+        assert result is True
+        submit_keyword.assert_called_once()
+        open_target.assert_called_once()
+
+    def test_fast_retry_does_not_submit_when_commit_disabled(self, bot):
+        bot.config.if_commit_order = False
+
+        with patch.object(bot, "probe_current_page", return_value={"state": "order_confirm_page"}), \
+             patch.object(bot, "smart_wait_for_element", return_value=True) as wait_for_element, \
+             patch.object(bot, "smart_wait_and_click") as smart_click:
+            result = bot._fast_retry_from_current_state()
+
+        assert result is True
+        wait_for_element.assert_called_once()
+        smart_click.assert_not_called()
+
+    def test_run_with_retry_stops_on_terminal_failure(self, bot):
+        with patch("mobile.damai_app.time.sleep"), \
+             patch.object(bot, "run_ticket_grabbing", side_effect=self._mark_terminal_failure(bot)), \
+             patch.object(bot, "_fast_retry_from_current_state") as fast_retry, \
+             patch.object(bot, "_setup_driver") as setup_driver:
+            result = bot.run_with_retry(max_retries=3)
+
+        assert result is False
+        fast_retry.assert_not_called()
+        setup_driver.assert_not_called()
+
+    @staticmethod
+    def _mark_terminal_failure(bot):
+        def runner():
+            bot._terminal_failure_reason = "reservation_only"
+            return False
+        return runner
+
+
+# ---------------------------------------------------------------------------
 # run_ticket_grabbing
 # ---------------------------------------------------------------------------
 
 class TestRunTicketGrabbing:
+    def test_run_ticket_grabbing_auto_navigates_from_homepage(self, bot):
+        bot.config.probe_only = True
+
+        with patch.object(bot, "dismiss_startup_popups"), \
+             patch.object(bot, "navigate_to_target_event", return_value=True) as navigate, \
+             patch.object(bot, "probe_current_page", side_effect=[
+                 {
+                     "state": "homepage",
+                     "purchase_button": False,
+                     "price_container": False,
+                     "quantity_picker": False,
+                     "submit_button": False,
+                     "reservation_mode": False,
+                 },
+                 {
+                     "state": "detail_page",
+                     "purchase_button": True,
+                     "price_container": True,
+                     "quantity_picker": False,
+                     "submit_button": False,
+                     "reservation_mode": False,
+                 },
+             ]), \
+             patch("mobile.damai_app.time") as mock_time:
+            mock_time.time.side_effect = [0.0, 0.3]
+            result = bot.run_ticket_grabbing()
+
+        assert result is True
+        navigate.assert_called_once()
+
     def test_run_ticket_grabbing_returns_false_when_not_detail_page(self, bot):
         """Homepage or other non-detail states fail fast with a clear result."""
+        bot.config.auto_navigate = False
+
         with patch.object(bot, "dismiss_startup_popups"), \
              patch.object(bot, "probe_current_page", return_value={
                  "state": "homepage",
@@ -463,6 +589,46 @@ class TestRunTicketGrabbing:
         assert result is True
         smart_click.assert_not_called()
         wait_for_element.assert_called_once()
+
+    def test_run_ticket_grabbing_returns_false_for_reservation_sku_page(self, bot, caplog):
+        """Reservation-only sku pages stop safely before tapping the bottom action."""
+        bot.config.if_commit_order = False
+
+        with caplog.at_level("WARNING", logger="mobile.damai_app"), \
+             patch.object(bot, "dismiss_startup_popups"), \
+             patch.object(bot, "probe_current_page", side_effect=[
+                 {
+                     "state": "sku_page",
+                     "purchase_button": False,
+                     "price_container": True,
+                     "quantity_picker": False,
+                     "submit_button": False,
+                     "reservation_mode": True,
+                 },
+                 {
+                     "state": "sku_page",
+                     "purchase_button": False,
+                     "price_container": True,
+                     "quantity_picker": False,
+                     "submit_button": False,
+                     "reservation_mode": True,
+                 },
+             ]), \
+             patch.object(bot, "wait_for_sale_start"), \
+             patch.object(bot, "ultra_fast_click") as fast_click, \
+             patch("mobile.damai_app.time") as mock_time:
+            mock_time.time.return_value = 0.0
+
+            result = bot.run_ticket_grabbing()
+
+        assert result is False
+        assert fast_click.call_count == 1
+        fast_click.assert_called_once_with(
+            AppiumBy.ANDROID_UIAUTOMATOR,
+            'new UiSelector().textContains("12.06")',
+            timeout=1.0,
+        )
+        assert "抢票预约" in caplog.text
 
     def test_run_ticket_grabbing_returns_false_when_confirm_page_not_ready_and_commit_disabled(self, bot, caplog):
         """Commit-disabled mode fails safely if the confirm page never becomes ready."""
@@ -757,6 +923,21 @@ class TestPageStateHelpers:
 
             assert result["state"] == "sku_page"
             assert result["price_container"] is True
+            assert result["reservation_mode"] is False
+
+    def test_probe_current_page_marks_reservation_mode_for_reservation_sku(self, bot):
+        present = {
+            (By.ID, "cn.damai:id/project_detail_perform_price_flowlayout"),
+            (By.ID, "cn.damai:id/layout_sku"),
+            (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("预约想看场次")'),
+        }
+
+        with patch.object(bot, "_has_element", side_effect=lambda by, value: (by, value) in present), \
+             patch.object(bot, "_get_current_activity", return_value=".commonbusiness.seatbiz.sku.qilin.ui.NcovSkuActivity"):
+            result = bot.probe_current_page()
+
+            assert result["state"] == "sku_page"
+            assert result["reservation_mode"] is True
 
     def test_probe_current_page_detects_detail_page_controls(self, bot):
         present = {
@@ -780,7 +961,9 @@ class TestPageStateHelpers:
         present = {
             (By.ID, "android:id/ok"),
             (By.ID, "cn.damai:id/id_boot_action_agree"),
+            (By.ID, "cn.damai:id/damai_theme_dialog_cancel_btn"),
             (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("Cancel")'),
+            (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("下次再说")'),
         }
 
         with patch.object(bot, "_has_element", side_effect=lambda by, value: (by, value) in present), \
@@ -791,7 +974,9 @@ class TestPageStateHelpers:
             assert result is True
             fast_click.assert_any_call(By.ID, "android:id/ok")
             fast_click.assert_any_call(By.ID, "cn.damai:id/id_boot_action_agree")
+            fast_click.assert_any_call(By.ID, "cn.damai:id/damai_theme_dialog_cancel_btn")
             fast_click.assert_any_call(AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("Cancel")')
+            fast_click.assert_any_call(AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("下次再说")')
 
 
 # ---------------------------------------------------------------------------
@@ -956,6 +1141,8 @@ class TestFastRetry:
 
     def test_fast_retry_from_unknown_presses_back(self, bot):
         """probe returns unknown, press_keycode(4) called, then re-runs flow."""
+        bot.config.auto_navigate = False
+
         with patch.object(bot, "probe_current_page", return_value={
                 "state": "unknown",
                 "purchase_button": False,

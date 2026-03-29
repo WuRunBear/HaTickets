@@ -5,7 +5,10 @@
   "platform_version": "15",
   "app_package": "cn.damai",
   "app_activity": ".launcher.splash.SplashMainActivity",
-  "keyword": "演出名称",
+  // 推荐填写大麦详情页链接，脚本会自动提取 itemId 并尽量自动生成搜索关键词
+  "item_url": "https://m.damai.cn/shows/item.html?itemId=1016133935724",
+  // 如果 item_url 解析失败，可保留 keyword 作为兜底；否则可写 null
+  "keyword": null,
   "users": [
     "张三",
     "李四"
@@ -16,6 +19,8 @@
   "price_index": 5,
   "if_commit_order": true,
   "probe_only": false,
+  // 自动从大麦首页/搜索页导航到目标演出
+  "auto_navigate": true,
   // 开售时间 (ISO格式，用于倒计时等待，null=立即购买)
   "sell_start_time": null,
   // 提前轮询时间 (毫秒)
