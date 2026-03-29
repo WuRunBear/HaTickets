@@ -6,6 +6,11 @@ __Description__ = "大麦app抢票自动化 - 优化版"
 __Created__ = 2025/09/13 19:27
 """
 
+import re
+import os
+import shutil
+import subprocess
+import tempfile
 import time
 from datetime import datetime, timezone, timedelta
 
@@ -46,16 +51,20 @@ except ImportError:
 
 logger = get_logger(__name__)
 
+_MAGICK_BIN = shutil.which("magick")
+_TESSERACT_BIN = shutil.which("tesseract")
+
 
 class DamaiBot:
-    def __init__(self):
-        self.config = Config.load_config()
+    def __init__(self, config=None, setup_driver=True):
+        self.config = config or Config.load_config()
         self.item_detail = None
         self.driver = None
         self.wait = None
         self._terminal_failure_reason = None
         self._prepare_runtime_config()
-        self._setup_driver()
+        if setup_driver:
+            self._setup_driver()
 
     def _set_terminal_failure(self, reason):
         """Mark the current failure as non-retriable."""
@@ -292,6 +301,167 @@ class DamaiBot:
                 return text
         return ""
 
+    def _safe_element_texts(self, container, by, value):
+        """Read all non-empty child texts if present."""
+        try:
+            elements = container.find_elements(by=by, value=value)
+        except Exception:
+            return []
+
+        texts = []
+        seen = set()
+        for element in elements:
+            text = (element.text or "").strip()
+            if not text or text in seen:
+                continue
+            texts.append(text)
+            seen.add(text)
+        return texts
+
+    def _collect_descendant_texts(self, container):
+        """Collect all visible descendant texts under a container."""
+        texts = []
+        seen = set()
+        try:
+            descendants = container.find_elements(By.XPATH, ".//*")
+        except Exception:
+            descendants = []
+
+        for element in descendants:
+            try:
+                text = (element.text or "").strip()
+            except Exception:
+                text = ""
+            if not text or text in seen:
+                continue
+            texts.append(text)
+            seen.add(text)
+        return texts
+
+    def _build_compound_price_text(self, container):
+        """Build a human-readable price string from split price fields."""
+        prefix_ids = (
+            "cn.damai:id/bricks_dm_common_price_prefix",
+            "cn.damai:id/project_price_char",
+        )
+        value_ids = (
+            "cn.damai:id/bricks_dm_common_price_des",
+            "cn.damai:id/project_price_pre",
+            "cn.damai:id/project_price_suffix",
+        )
+        suffix_ids = (
+            "cn.damai:id/bricks_dm_common_price_suffix",
+        )
+
+        prefix = ""
+        value_parts = []
+        suffix = ""
+
+        for resource_id in prefix_ids:
+            prefix = prefix or self._safe_element_text(container, By.ID, resource_id)
+        for resource_id in value_ids:
+            value_parts.extend(self._safe_element_texts(container, By.ID, resource_id))
+        for resource_id in suffix_ids:
+            suffix = suffix or self._safe_element_text(container, By.ID, resource_id)
+
+        value = "".join(value_parts).strip()
+        compound = f"{prefix}{value}{suffix}".strip()
+        if compound == "¥":
+            compound = ""
+        if compound and prefix == "¥" and suffix == "起":
+            return compound
+        if value and value.replace(".", "", 1).isdigit() and not suffix:
+            return f"{value}元"
+        if compound and compound.startswith("¥"):
+            return compound.replace("¥", "¥", 1)
+        return compound
+
+    def _price_option_text_from_descendants(self, texts):
+        """Collapse descendant texts into a price label."""
+        if not texts:
+            return ""
+
+        filtered = []
+        ignored = {"可预约", "预售", "无票", "已预约", "缺货", "惠", "荐", "热", "售罄"}
+        for text in texts:
+            value = text.strip()
+            if not value or value in ignored:
+                continue
+            filtered.append(value)
+
+        if not filtered:
+            return ""
+
+        merged = "".join(filtered)
+        if merged.isdigit():
+            return f"{merged}元"
+        if re.fullmatch(r"[\u4e00-\u9fffA-Za-z]+[0-9]{2,5}", merged):
+            return f"{merged}元"
+        if re.fullmatch(r"[0-9]{2,5}[A-Za-z\u4e00-\u9fff]+", merged):
+            return merged
+        return merged
+
+    def _normalize_ocr_price_text(self, ocr_output):
+        """Extract the leading ticket price from noisy OCR output."""
+        digits = "".join(re.findall(r"\d", ocr_output or ""))
+        if len(digits) >= 4:
+            leading_four = int(digits[:4])
+            if 1000 <= leading_four <= 1999:
+                return f"{leading_four}元"
+        if len(digits) >= 3:
+            leading_three = int(digits[:3])
+            if 100 <= leading_three <= 999:
+                return f"{leading_three}元"
+        return ""
+
+    def _ocr_price_text_from_card(self, screenshot_path, rect):
+        """OCR the price number from a price-card crop as a last-resort fallback."""
+        if not (_MAGICK_BIN and _TESSERACT_BIN and screenshot_path and rect):
+            return ""
+
+        crop_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_file:
+                crop_path = tmp_file.name
+
+            subprocess.run(
+                [
+                    _MAGICK_BIN,
+                    screenshot_path,
+                    "-crop", f"{rect['width']}x{rect['height']}+{rect['x']}+{rect['y']}",
+                    "-resize", "300%",
+                    crop_path,
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            result = subprocess.run(
+                [_TESSERACT_BIN, crop_path, "stdout", "-l", "eng+snum", "--psm", "6"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            return self._normalize_ocr_price_text(result.stdout)
+        except Exception:
+            return ""
+        finally:
+            if crop_path and os.path.exists(crop_path):
+                try:
+                    os.unlink(crop_path)
+                except OSError:
+                    pass
+
+    def _keyword_tokens(self):
+        """Split the configured keyword into reusable fuzzy-match tokens."""
+        keyword = self.config.keyword or ""
+        tokens = []
+        for raw in re.split(r"[\s,，、|/]+", keyword):
+            token = normalize_text(raw)
+            if len(token) >= 2 and token not in tokens:
+                tokens.append(token)
+        return tokens
+
     def _get_detail_title_text(self):
         """Read title text from detail/sku pages."""
         title = ""
@@ -320,6 +490,8 @@ class DamaiBot:
         candidates = []
         if self.item_detail:
             candidates.extend([self.item_detail.item_name, self.item_detail.item_name_display])
+        if self.config.target_title:
+            candidates.append(self.config.target_title)
         if self.config.keyword:
             candidates.append(self.config.keyword)
 
@@ -329,6 +501,10 @@ class DamaiBot:
                 continue
             if normalized_candidate in normalized_title or normalized_title in normalized_candidate:
                 return True
+
+        keyword_tokens = self._keyword_tokens()
+        if keyword_tokens and all(token in normalized_title for token in keyword_tokens):
+            return True
 
         return False
 
@@ -454,6 +630,13 @@ class DamaiBot:
             elif normalized_keyword in normalized_title:
                 score += 50
 
+        keyword_tokens = self._keyword_tokens()
+        if keyword_tokens:
+            token_hits = sum(1 for token in keyword_tokens if token in normalized_title)
+            score += token_hits * 20
+            if token_hits == len(keyword_tokens) and len(keyword_tokens) >= 2:
+                score += 30
+
         normalized_city = normalize_text(city_keyword(self.config.city))
         if normalized_city and normalized_city in normalized_title:
             score += 20
@@ -466,6 +649,11 @@ class DamaiBot:
             expected_city = normalize_text(self.item_detail.city_keyword)
             if expected_city and expected_city in normalized_title:
                 score += 10
+
+        if self.config.target_venue:
+            expected_venue = normalize_text(self.config.target_venue)
+            if expected_venue and expected_venue in normalized_venue:
+                score += 30
 
         return score
 
@@ -522,6 +710,48 @@ class DamaiBot:
         logger.warning("自动搜索后未找到目标演出")
         return False
 
+    def collect_search_results(self, max_scrolls=0, max_results=5):
+        """Collect search result summaries without opening them."""
+        seen = set()
+        collected = []
+
+        for scroll_index in range(max_scrolls + 1):
+            result_cards = self.driver.find_elements(By.ID, "cn.damai:id/ll_search_item")
+            for card in result_cards:
+                title_text = self._safe_element_text(card, By.ID, "cn.damai:id/tv_project_name")
+                if not title_text:
+                    continue
+
+                normalized_title = normalize_text(title_text)
+                if normalized_title in seen:
+                    continue
+
+                venue_text = self._safe_element_text(card, By.ID, "cn.damai:id/tv_project_venueName")
+                city_text = self._safe_element_text(card, By.ID, "cn.damai:id/tv_project_city").replace("|", "").strip()
+                time_text = self._safe_element_text(card, By.ID, "cn.damai:id/tv_project_time")
+                price_text = self._build_compound_price_text(card)
+                score = self._score_search_result(title_text, venue_text)
+
+                collected.append({
+                    "title": title_text,
+                    "venue": venue_text,
+                    "city": city_text,
+                    "time": time_text,
+                    "price": price_text,
+                    "score": score,
+                })
+                seen.add(normalized_title)
+
+            if len(collected) >= max_results:
+                break
+
+            if scroll_index < max_scrolls:
+                self._scroll_search_results()
+                time.sleep(0.4)
+
+        collected.sort(key=lambda item: item["score"], reverse=True)
+        return collected[:max_results]
+
     def navigate_to_target_event(self, initial_probe=None):
         """Auto-navigate from homepage/search to the target event detail page."""
         if not self.config.auto_navigate:
@@ -552,6 +782,60 @@ class DamaiBot:
             return False
 
         return self._open_target_from_search_results()
+
+    def discover_target_event(self, keyword_candidates, initial_probe=None, search_scrolls=1, result_limit=5):
+        """Try multiple keywords, collect candidate summaries, and open the best match."""
+        page_probe = initial_probe or self.probe_current_page()
+        page_probe = self._recover_to_navigation_start(page_probe)
+
+        if page_probe["state"] in {"detail_page", "sku_page"} and self._current_page_matches_target(page_probe):
+            return {
+                "used_keyword": self.config.keyword,
+                "search_results": [],
+                "page_probe": page_probe,
+            }
+
+        if page_probe["state"] in {"detail_page", "sku_page"} and not self._current_page_matches_target(page_probe):
+            self.driver.press_keycode(4)
+            time.sleep(0.5)
+            page_probe = self.probe_current_page()
+
+        if page_probe["state"] == "homepage":
+            if not self._open_search_from_homepage():
+                return None
+            page_probe = self.probe_current_page()
+
+        if page_probe["state"] != "search_page":
+            logger.warning(f"当前页面不适合执行提示词检索: {page_probe['state']}")
+            return None
+
+        tried = set()
+        for keyword in keyword_candidates:
+            normalized_keyword = normalize_text(keyword)
+            if not normalized_keyword or normalized_keyword in tried:
+                continue
+
+            self.config.keyword = keyword
+            logger.info(f"尝试搜索关键词: {keyword}")
+            if not self._submit_search_keyword():
+                tried.add(normalized_keyword)
+                continue
+
+            search_results = self.collect_search_results(max_scrolls=search_scrolls, max_results=result_limit)
+            if search_results:
+                logger.info(f"搜索到 {len(search_results)} 条候选结果，最高分 {search_results[0]['score']}")
+            if search_results and search_results[0]["score"] >= 40 and self._open_target_from_search_results(max_scrolls=search_scrolls):
+                page_probe = self.probe_current_page()
+                return {
+                    "used_keyword": keyword,
+                    "search_results": search_results,
+                    "page_probe": page_probe,
+                }
+
+            tried.add(normalized_keyword)
+
+        logger.warning("根据提示词尝试多个搜索关键词后，仍未打开目标演出")
+        return None
 
     def select_performance_date(self):
         """选择演出场次日期"""
@@ -694,6 +978,8 @@ class DamaiBot:
             (By.ID, "android:id/ok"),  # Android 全屏提示
             (By.ID, "cn.damai:id/id_boot_action_agree"),  # 大麦隐私协议
             (By.ID, "cn.damai:id/damai_theme_dialog_cancel_btn"),  # 开启消息通知
+            (By.ID, "cn.damai:id/damai_theme_dialog_close_layout"),  # 新版升级提示关闭按钮
+            (By.ID, "cn.damai:id/damai_theme_dialog_close_btn"),  # 新版升级提示关闭图标
             (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("Cancel")'),  # Add to home screen
             (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("下次再说")'),
             (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("我知道了")'),
@@ -720,20 +1006,156 @@ class DamaiBot:
 
         return any(self._has_element(by, value) for by, value in reservation_indicators)
 
+    def get_visible_date_options(self):
+        """Return visible date options on the current page."""
+        dates = []
+        seen = set()
+        for element in self.driver.find_elements(By.ID, "cn.damai:id/tv_date"):
+            text = (element.text or "").strip()
+            if not text or text in seen:
+                continue
+            dates.append(text)
+            seen.add(text)
+        return dates
+
+    def get_visible_price_options(self):
+        """Return visible price options from the current sku page."""
+        try:
+            price_container = self.driver.find_element(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout")
+        except Exception:
+            return []
+
+        options = []
+        try:
+            cards = price_container.find_elements(By.CLASS_NAME, "android.widget.FrameLayout")
+        except Exception:
+            cards = []
+
+        cards = [card for card in cards if str(card.get_attribute("clickable")).lower() == "true"]
+        screenshot_path = None
+        if cards and _MAGICK_BIN and _TESSERACT_BIN:
+            try:
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_file:
+                    screenshot_path = tmp_file.name
+                self.driver.get_screenshot_as_file(screenshot_path)
+            except Exception:
+                screenshot_path = None
+
+        for index, card in enumerate(cards):
+            texts = self._collect_descendant_texts(card)
+            text = self._price_option_text_from_descendants(texts)
+            source = "ui" if text else ""
+            tag = ""
+            for candidate in texts:
+                if candidate in {"可预约", "预售", "无票", "已预约", "缺货", "售罄", "已售罄", "可选"}:
+                    tag = candidate
+                    break
+
+            if not text and screenshot_path:
+                text = self._ocr_price_text_from_card(screenshot_path, card.rect)
+                if text:
+                    source = "ocr"
+
+            if not text and not tag:
+                continue
+
+            options.append({
+                "index": index,
+                "text": text,
+                "tag": tag,
+                "raw_texts": texts,
+                "source": source or "ui",
+            })
+
+        if screenshot_path and os.path.exists(screenshot_path):
+            try:
+                os.unlink(screenshot_path)
+            except OSError:
+                pass
+
+        return options
+
+    def _get_detail_venue_text(self):
+        """Read venue text from the detail page if present."""
+        for resource_id in ("cn.damai:id/venue_name_0", "cn.damai:id/tv_project_venueName"):
+            value = self._safe_element_text(self.driver, By.ID, resource_id)
+            if value:
+                return value.strip()
+        return ""
+
+    def ensure_sku_page_for_inspection(self, page_probe=None):
+        """Safely enter the sku page so prompt-based flows can inspect dates and prices."""
+        page_probe = page_probe or self.probe_current_page()
+        if page_probe["state"] == "sku_page":
+            return page_probe
+
+        if page_probe["state"] != "detail_page":
+            return page_probe
+
+        if self.config.date:
+            self.select_performance_date()
+
+        city_selectors = [
+            (AppiumBy.ANDROID_UIAUTOMATOR, f'new UiSelector().text("{self.config.city}")'),
+            (AppiumBy.ANDROID_UIAUTOMATOR, f'new UiSelector().textContains("{self.config.city}")'),
+            (By.XPATH, f'//*[@text="{self.config.city}"]'),
+        ]
+        self.smart_wait_and_click(*city_selectors[0], city_selectors[1:], timeout=0.8)
+
+        book_selectors = [
+            (By.ID, "cn.damai:id/trade_project_detail_purchase_status_bar_container_fl"),
+            (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().textMatches(".*预约.*|.*购买.*|.*立即.*")'),
+            (By.XPATH, '//*[contains(@text,"预约") or contains(@text,"购买")]'),
+        ]
+        if not self.smart_wait_and_click(*book_selectors[0], book_selectors[1:], timeout=1.0):
+            return self.probe_current_page()
+
+        return self.wait_for_page_state({"sku_page", "order_confirm_page"}, timeout=5)
+
+    def inspect_current_target_event(self, page_probe=None):
+        """Summarize the currently opened event for prompt-based confirmation."""
+        page_probe = page_probe or self.probe_current_page()
+        summary = {
+            "state": page_probe["state"],
+            "title": self._get_detail_title_text(),
+            "venue": self._get_detail_venue_text(),
+            "dates": [],
+            "price_options": [],
+            "reservation_mode": page_probe.get("reservation_mode", False),
+        }
+
+        sku_probe = self.ensure_sku_page_for_inspection(page_probe)
+        summary["state"] = sku_probe["state"]
+        if not summary["title"]:
+            summary["title"] = self._get_detail_title_text()
+        if not summary["venue"]:
+            summary["venue"] = self._get_detail_venue_text()
+
+        if sku_probe["state"] == "sku_page":
+            summary["reservation_mode"] = sku_probe.get("reservation_mode", False)
+            summary["dates"] = self.get_visible_date_options()
+            summary["price_options"] = self.get_visible_price_options()
+
+        return summary
+
     def probe_current_page(self):
         """探测当前页面状态和关键控件可见性。"""
         state = "unknown"
         current_activity = self._get_current_activity()
         purchase_button = self._has_element(By.ID, "cn.damai:id/trade_project_detail_purchase_status_bar_container_fl")
         detail_price_summary = self._has_element(By.ID, "cn.damai:id/project_detail_price_layout")
-        sku_price_container = self._has_element(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout")
+        sku_price_container = self._has_element(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout") or \
+            self._has_element(By.ID, "cn.damai:id/layout_price") or \
+            self._has_element(By.ID, "cn.damai:id/tv_price_name")
         quantity_picker = self._has_element(By.ID, "layout_num")
         submit_button = self._has_element(AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("立即提交")')
         reservation_mode = False
 
         if self._has_element(By.ID, "cn.damai:id/id_boot_action_agree"):
             state = "consent_dialog"
-        elif self._has_element(By.ID, "cn.damai:id/homepage_header_search"):
+        elif "MainActivity" in current_activity or \
+                self._has_element(By.ID, "cn.damai:id/homepage_header_search") or \
+                self._has_element(By.ID, "cn.damai:id/pioneer_homepage_header_search_btn"):
             state = "homepage"
         elif "SearchActivity" in current_activity or self._has_element(By.ID, "cn.damai:id/header_search_v2_input"):
             state = "search_page"

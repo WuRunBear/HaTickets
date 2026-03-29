@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from mobile.config import Config, _strip_jsonc_comments
+from mobile.config import Config, _strip_jsonc_comments, load_config_dict, save_config_dict
 
 
 _VALID = dict(
@@ -143,6 +143,14 @@ class TestMobileConfigValidation:
     def test_item_id_invalid_raises(self):
         with pytest.raises(ValueError, match="item_id"):
             Config(**_make(item_id="abc123"))
+
+    def test_target_title_empty_raises(self):
+        with pytest.raises(ValueError, match="target_title"):
+            Config(**_make(target_title=""))
+
+    def test_target_venue_empty_raises(self):
+        with pytest.raises(ValueError, match="target_venue"):
+            Config(**_make(target_venue=""))
 
     def test_auto_navigate_non_bool_raises(self):
         with pytest.raises(ValueError, match="auto_navigate"):
@@ -320,3 +328,30 @@ class TestMobileConfigLoadConfig:
         assert cfg.keyword is None
         assert cfg.item_url.endswith("1016133935724")
         assert cfg.auto_navigate is True
+
+    def test_load_and_save_config_dict_round_trip(self, tmp_path):
+        path = tmp_path / "config.jsonc"
+        source = {
+            "server_url": "http://127.0.0.1:4723",
+            "device_name": "Android",
+            "udid": "ABC",
+            "platform_version": "16",
+            "app_package": "cn.damai",
+            "app_activity": ".launcher.splash.SplashMainActivity",
+            "keyword": "张杰 演唱会",
+            "target_title": "张杰演唱会北京站",
+            "target_venue": "国家体育场-鸟巢",
+            "users": ["张三"],
+            "city": "北京",
+            "date": "04.06",
+            "price": "1280元",
+            "price_index": 6,
+            "if_commit_order": False,
+            "probe_only": True,
+            "auto_navigate": True,
+        }
+
+        save_config_dict(source, str(path))
+        loaded = load_config_dict(str(path))
+
+        assert loaded == source

@@ -90,6 +90,35 @@ def bot():
 # ---------------------------------------------------------------------------
 
 class TestInitialization:
+    def test_init_accepts_injected_config(self):
+        mock_driver = Mock()
+        mock_driver.update_settings = Mock()
+
+        injected_config = Config(
+            server_url="http://127.0.0.1:4723",
+            device_name="Android",
+            udid=None,
+            platform_version=None,
+            app_package="cn.damai",
+            app_activity=".launcher.splash.SplashMainActivity",
+            keyword="张杰 演唱会",
+            users=["UserA"],
+            city="北京",
+            date="04.06",
+            price="1280元",
+            price_index=6,
+            if_commit_order=False,
+            probe_only=True,
+        )
+
+        with patch("mobile.damai_app.webdriver.Remote", return_value=mock_driver), \
+             patch("mobile.damai_app.AppiumOptions"), \
+             patch("mobile.damai_app.Config.load_config") as load_config:
+            bot = DamaiBot(config=injected_config)
+
+        assert bot.config is injected_config
+        load_config.assert_not_called()
+
     def test_init_loads_config_and_driver(self, bot):
         """Config is loaded and driver is created during __init__."""
         assert bot.config is not None
@@ -325,6 +354,11 @@ class TestSmartWaitAndClick:
 # ---------------------------------------------------------------------------
 
 class TestAutoNavigation:
+    def test_title_matches_target_with_keyword_tokens(self, bot):
+        bot.config.keyword = "张杰 演唱会"
+
+        assert bot._title_matches_target("【北京】2026张杰未·LIVE—「开往1982」演唱会-北京站") is True
+
     def test_navigate_to_target_event_from_search_page(self, bot):
         with patch.object(bot, "_recover_to_navigation_start", return_value={"state": "search_page"}), \
              patch.object(bot, "_submit_search_keyword", return_value=True) as submit_keyword, \
@@ -879,6 +913,57 @@ class TestRunTicketGrabbing:
 
 
 class TestPageStateHelpers:
+    def test_collect_search_results_reads_card_summary(self, bot):
+        card = Mock()
+        card.find_elements.side_effect = lambda by=None, value=None: {
+            (By.ID, "cn.damai:id/tv_project_name"): [Mock(text="【北京】张杰演唱会")],
+            (By.ID, "cn.damai:id/tv_project_venueName"): [Mock(text="国家体育场-鸟巢")],
+            (By.ID, "cn.damai:id/tv_project_city"): [Mock(text="北京 | ")],
+            (By.ID, "cn.damai:id/tv_project_time"): [Mock(text="2026.03.29-04.19")],
+            (By.ID, "cn.damai:id/bricks_dm_common_price_prefix"): [Mock(text="¥")],
+            (By.ID, "cn.damai:id/bricks_dm_common_price_des"): [Mock(text="380")],
+            (By.ID, "cn.damai:id/bricks_dm_common_price_suffix"): [Mock(text="起")],
+        }.get((by, value), [])
+        bot.driver.find_elements.return_value = [card]
+        bot.config.keyword = "张杰 演唱会"
+
+        results = bot.collect_search_results()
+
+        assert results == [{
+            "title": "【北京】张杰演唱会",
+            "venue": "国家体育场-鸟巢",
+            "city": "北京",
+            "time": "2026.03.29-04.19",
+            "price": "¥380起",
+            "score": results[0]["score"],
+        }]
+        assert results[0]["score"] >= 60
+
+    def test_get_visible_price_options_extracts_card_texts(self, bot):
+        price_container = Mock()
+        card_a = Mock()
+        card_b = Mock()
+        price_container.find_elements.side_effect = lambda by=None, value=None: (
+            [card_a, card_b] if (by, value) == (By.CLASS_NAME, "android.widget.FrameLayout") else []
+        )
+        bot.driver.find_element.return_value = price_container
+        card_a.get_attribute.side_effect = lambda name: "true" if name == "clickable" else ""
+        card_b.get_attribute.side_effect = lambda name: "true" if name == "clickable" else ""
+        card_a.find_elements.return_value = [Mock(text="内场"), Mock(text="1280"), Mock(text="可预约")]
+        card_b.find_elements.return_value = [Mock(text="看台"), Mock(text="380"), Mock(text="无票")]
+
+        options = bot.get_visible_price_options()
+
+        assert options == [
+            {"index": 0, "text": "内场1280元", "tag": "可预约", "raw_texts": ["内场", "1280", "可预约"], "source": "ui"},
+            {"index": 1, "text": "看台380元", "tag": "无票", "raw_texts": ["看台", "380", "无票"], "source": "ui"},
+        ]
+
+    def test_normalize_ocr_price_text(self, bot):
+        assert bot._normalize_ocr_price_text("38075 Fam ©") == "380元"
+        assert bot._normalize_ocr_price_text("128076 gma G") == "1280元"
+        assert bot._normalize_ocr_price_text("noise") == ""
+
     def test_probe_current_page_detects_homepage(self, bot):
         with patch.object(
             bot,
@@ -889,6 +974,13 @@ class TestPageStateHelpers:
 
             assert result["state"] == "homepage"
             assert result["purchase_button"] is False
+
+    def test_probe_current_page_detects_homepage_by_activity(self, bot):
+        with patch.object(bot, "_has_element", return_value=False), \
+             patch.object(bot, "_get_current_activity", return_value=".homepage.MainActivity"):
+            result = bot.probe_current_page()
+
+            assert result["state"] == "homepage"
 
     def test_probe_current_page_detects_search_activity(self, bot):
         with patch.object(bot, "_has_element", return_value=False), \
@@ -962,6 +1054,7 @@ class TestPageStateHelpers:
             (By.ID, "android:id/ok"),
             (By.ID, "cn.damai:id/id_boot_action_agree"),
             (By.ID, "cn.damai:id/damai_theme_dialog_cancel_btn"),
+            (By.ID, "cn.damai:id/damai_theme_dialog_close_layout"),
             (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("Cancel")'),
             (AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("下次再说")'),
         }
@@ -975,6 +1068,7 @@ class TestPageStateHelpers:
             fast_click.assert_any_call(By.ID, "android:id/ok")
             fast_click.assert_any_call(By.ID, "cn.damai:id/id_boot_action_agree")
             fast_click.assert_any_call(By.ID, "cn.damai:id/damai_theme_dialog_cancel_btn")
+            fast_click.assert_any_call(By.ID, "cn.damai:id/damai_theme_dialog_close_layout")
             fast_click.assert_any_call(AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("Cancel")')
             fast_click.assert_any_call(AppiumBy.ANDROID_UIAUTOMATOR, 'new UiSelector().text("下次再说")')
 

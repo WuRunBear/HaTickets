@@ -9,6 +9,9 @@
   "item_url": "https://m.damai.cn/shows/item.html?itemId=1016133935724",
   // 如果 item_url 解析失败，可保留 keyword 作为兜底；否则可写 null
   "keyword": null,
+  // 如果是通过自然语言查询后写入的配置，这里会落精确标题/场馆，帮助自动搜索更稳定
+  "target_title": null,
+  "target_venue": null,
   "users": [
     "张三",
     "李四"

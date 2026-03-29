@@ -33,6 +33,14 @@
 上图对应的是当前项目的核心思路：  
 先定位目标演出，再进入票档页和确认页；如果配置了 `item_url + auto_navigate`，脚本可以从大麦首页自动搜到目标演出。如果配置了 `if_commit_order: false`，脚本会停在“立即提交”之前，不会帮你支付。
 
+如果你希望把“自然语言提示词”也接进来，例如：
+
+```bash
+./mobile/scripts/run_from_prompt.sh "帮我抢一张 4 月 6 号张杰的演唱会门票，内场"
+```
+
+现在脚本会先自动解析提示词，去大麦 App 搜索目标演出，抓取当前可见的场次和票档摘要，再把摘要展示出来供你确认。确认后可以直接写入 [mobile/config.jsonc](./mobile/config.jsonc)，也可以继续执行 `probe` / `confirm` 模式。
+
 ## 推荐阅读顺序
 
 1. 先看下面的 `Mobile 真机教程`
@@ -178,6 +186,21 @@ appium --port 4723
 ```bash
 ./mobile/scripts/start_ticket_grabbing.sh --yes
 ```
+
+如果你想先让脚本根据自然语言自动检索并写配置，再直接做一次安全探测，可以执行：
+
+```bash
+./mobile/scripts/run_from_prompt.sh --mode probe --yes "帮我抢一张 4 月 6 号张杰的演唱会门票，1280元"
+```
+
+说明：
+
+- `summary`：只查询并输出摘要，不改配置
+- `apply`：写入配置，但不执行抢票脚本
+- `probe`：写入配置后，按 `probe_only=true` 直接做页面探测
+- `confirm`：写入配置后，按 `probe_only=false`、`if_commit_order=false` 验证到确认页前
+
+如果提示词里的票档偏好像“内场”一样不够精确，而当前页面只展示纯价格，脚本会先把可见票档列出来，等你确认后再写入配置，不会盲目替你选档。
 
 如果这一步成功，说明：
 

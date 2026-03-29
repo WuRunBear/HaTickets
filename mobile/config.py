@@ -25,13 +25,42 @@ def _strip_jsonc_comments(text):
     return text
 
 
+def _load_config_dict_from_path(path):
+    try:
+        with open(path, 'r', encoding='utf-8') as config_file:
+            raw_text = config_file.read()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"配置文件未找到: {path}")
+
+    try:
+        return json.loads(_strip_jsonc_comments(raw_text))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"配置文件格式错误: {e}")
+
+
+def _dump_config_dict(config_dict):
+    return json.dumps(config_dict, ensure_ascii=False, indent=2) + "\n"
+
+
+def load_config_dict(config_path='config.jsonc'):
+    """Load a JSONC config file into a plain dictionary."""
+    return _load_config_dict_from_path(config_path)
+
+
+def save_config_dict(config_dict, config_path='config.jsonc'):
+    """Persist a config dictionary back to disk as UTF-8 JSON."""
+    with open(config_path, 'w', encoding='utf-8') as config_file:
+        config_file.write(_dump_config_dict(config_dict))
+
+
 class Config:
     def __init__(self, server_url, keyword, users, city, date, price, price_index, if_commit_order,
                  probe_only=False, device_name="Android", udid=None, platform_version=None,
                  app_package="cn.damai", app_activity=".launcher.splash.SplashMainActivity",
                  sell_start_time=None, countdown_lead_ms=3000,
                  fast_retry_count=5, fast_retry_interval_ms=500,
-                 item_url=None, item_id=None, auto_navigate=True):
+                 item_url=None, item_id=None, auto_navigate=True,
+                 target_title=None, target_venue=None):
         # Validate server_url
         validate_url(server_url, "server_url")
 
@@ -78,6 +107,12 @@ class Config:
         if not isinstance(auto_navigate, bool):
             raise ValueError(f"auto_navigate 必须是布尔值，实际值: {auto_navigate!r}")
 
+        if target_title is not None and (not isinstance(target_title, str) or len(target_title.strip()) == 0):
+            raise ValueError(f"target_title 必须是非空字符串或 null，实际值: {target_title!r}")
+
+        if target_venue is not None and (not isinstance(target_venue, str) or len(target_venue.strip()) == 0):
+            raise ValueError(f"target_venue 必须是非空字符串或 null，实际值: {target_venue!r}")
+
         # Validate sell_start_time
         if sell_start_time is not None:
             if not isinstance(sell_start_time, str):
@@ -120,19 +155,40 @@ class Config:
         self.item_url = item_url
         self.item_id = item_id
         self.auto_navigate = auto_navigate
+        self.target_title = target_title.strip() if isinstance(target_title, str) else None
+        self.target_venue = target_venue.strip() if isinstance(target_venue, str) else None
+
+    def to_dict(self):
+        """Return the config as a plain dictionary for rewriting config.jsonc."""
+        return {
+            "server_url": self.server_url,
+            "device_name": self.device_name,
+            "udid": self.udid,
+            "platform_version": self.platform_version,
+            "app_package": self.app_package,
+            "app_activity": self.app_activity,
+            "item_url": self.item_url,
+            "item_id": self.item_id,
+            "keyword": self.keyword,
+            "target_title": self.target_title,
+            "target_venue": self.target_venue,
+            "users": self.users,
+            "city": self.city,
+            "date": self.date,
+            "price": self.price,
+            "price_index": self.price_index,
+            "if_commit_order": self.if_commit_order,
+            "probe_only": self.probe_only,
+            "auto_navigate": self.auto_navigate,
+            "sell_start_time": self.sell_start_time,
+            "countdown_lead_ms": self.countdown_lead_ms,
+            "fast_retry_count": self.fast_retry_count,
+            "fast_retry_interval_ms": self.fast_retry_interval_ms,
+        }
 
     @staticmethod
-    def load_config():
-        try:
-            with open('config.jsonc', 'r', encoding='utf-8') as config_file:
-                raw_text = config_file.read()
-        except FileNotFoundError:
-            raise FileNotFoundError("配置文件 config.jsonc 未找到，请确认文件存在")
-
-        try:
-            config = json.loads(_strip_jsonc_comments(raw_text))
-        except json.JSONDecodeError as e:
-            raise ValueError(f"配置文件格式错误: {e}")
+    def load_config(config_path='config.jsonc'):
+        config = load_config_dict(config_path)
 
         required_keys = ['server_url', 'users', 'city', 'date', 'price', 'price_index', 'if_commit_order']
         missing = [k for k in required_keys if k not in config]
@@ -162,4 +218,6 @@ class Config:
                       config.get('fast_retry_interval_ms', 500),
                       config.get('item_url'),
                       config.get('item_id'),
-                      config.get('auto_navigate', True))
+                      config.get('auto_navigate', True),
+                      config.get('target_title'),
+                      config.get('target_venue'))
