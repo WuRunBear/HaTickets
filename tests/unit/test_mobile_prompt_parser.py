@@ -32,6 +32,7 @@ class TestParsePrompt:
         assert intent.candidate_keywords[:2] == ["张杰 演唱会", "张杰"]
         assert intent.price_hint == "内场"
         assert intent.seat_hint == "内场"
+        assert intent.attendee_names == []
 
     def test_parse_numeric_price_hint(self):
         intent = parse_prompt("帮我抢两张 4月6日 张杰演唱会 1280 元")
@@ -56,8 +57,9 @@ class TestParsePrompt:
     def test_parse_prompt_adds_notes_when_date_and_price_are_missing(self):
         intent = parse_prompt("帮我买一张马思唯上海演唱会")
 
-        assert "提示词中未识别到明确日期" in intent.notes[0]
-        assert "提示词中未识别到明确票档偏好" in intent.notes[1]
+        assert any("提示词中未识别到观演人姓名" in note for note in intent.notes)
+        assert any("提示词中未识别到明确日期" in note for note in intent.notes)
+        assert any("提示词中未识别到明确票档偏好" in note for note in intent.notes)
 
     def test_parse_prompt_supports_station_city_and_slash_date(self):
         intent = parse_prompt("帮我抢两张 成都站 4/18 顽童mj116 演唱会")
@@ -66,6 +68,28 @@ class TestParsePrompt:
         assert intent.city == "成都"
         assert intent.date == "04.18"
         assert intent.artist == "顽童mj116"
+
+    def test_parse_prompt_extracts_single_attendee_name(self):
+        intent = parse_prompt("帮张志涛抢一张 4 月 4 号余佳运的演唱会门票，内场，票价 1080 元")
+
+        assert intent.attendee_names == ["张志涛"]
+        assert intent.artist == "余佳运"
+        assert intent.search_keyword == "余佳运 演唱会"
+        assert intent.date == "04.04"
+        assert intent.price_hint == "内场1080元"
+
+    def test_parse_prompt_extracts_multiple_attendee_names(self):
+        intent = parse_prompt("帮张志涛和李四抢两张 4 月 4 号余佳运的演唱会门票，内场，票价 1080 元")
+
+        assert intent.attendee_names == ["张志涛", "李四"]
+        assert intent.quantity == 2
+
+    def test_parse_prompt_adds_note_when_attendee_count_mismatches_quantity(self):
+        intent = parse_prompt("帮张文和张志涛抢一张 4 月 4 号余佳运的演唱会门票，内场，票价 1080 元")
+
+        assert intent.attendee_names == ["张文", "张志涛"]
+        assert intent.quantity == 1
+        assert any("观演人" in note and "购票张数" in note for note in intent.notes)
 
 
 class TestPromptParserInternals:

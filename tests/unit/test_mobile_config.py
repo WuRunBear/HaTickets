@@ -262,18 +262,33 @@ class TestMobileConfigLoadConfig:
         with pytest.raises(FileNotFoundError, match=f"配置文件未找到: {tmp_path / 'missing.jsonc'}"):
             _load_config_dict_from_path(tmp_path / "missing.jsonc")
 
-    def test_resolve_existing_config_path_prefers_local(self, tmp_path, monkeypatch):
+    def test_resolve_existing_config_path_uses_default_config(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("HATICKETS_CONFIG_PATH", raising=False)
         (tmp_path / "config.local.jsonc").write_text("{}", encoding="utf-8")
         (tmp_path / "config.jsonc").write_text("{}", encoding="utf-8")
 
+        assert _resolve_existing_config_path() == "config.jsonc"
+
+    def test_resolve_existing_config_path_uses_env_override(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "config.local.jsonc").write_text("{}", encoding="utf-8")
+        monkeypatch.setenv("HATICKETS_CONFIG_PATH", "config.local.jsonc")
+
         assert _resolve_existing_config_path() == "config.local.jsonc"
 
-    def test_resolve_writable_config_path_falls_back_to_shared(self, tmp_path, monkeypatch):
+    def test_resolve_writable_config_path_defaults_to_shared(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("HATICKETS_CONFIG_PATH", raising=False)
         (tmp_path / "config.jsonc").write_text("{}", encoding="utf-8")
 
         assert _resolve_writable_config_path() == "config.jsonc"
+
+    def test_resolve_writable_config_path_uses_env_override(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("HATICKETS_CONFIG_PATH", "config.local.jsonc")
+
+        assert _resolve_writable_config_path() == "config.local.jsonc"
 
     def test_load_config_success(self, mock_mobile_config_file, monkeypatch):
         mock_mobile_config_file()
@@ -313,7 +328,8 @@ class TestMobileConfigLoadConfig:
 
     def test_load_config_file_not_found(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        with pytest.raises(FileNotFoundError, match="config.local.jsonc 或 config.jsonc"):
+        monkeypatch.delenv("HATICKETS_CONFIG_PATH", raising=False)
+        with pytest.raises(FileNotFoundError, match="config.jsonc"):
             Config.load_config()
 
     def test_load_config_invalid_json(self, tmp_path, monkeypatch):
@@ -461,8 +477,9 @@ class TestMobileConfigLoadConfig:
         cfg = Config.load_config()
         assert cfg.wait_cta_ready_timeout_ms == 45000
 
-    def test_load_config_prefers_config_local_jsonc(self, tmp_path, monkeypatch):
+    def test_load_config_defaults_to_config_jsonc(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("HATICKETS_CONFIG_PATH", raising=False)
         shared_fields = {
             "server_url": "http://127.0.0.1:4723",
             "users": ["A"],
@@ -483,10 +500,36 @@ class TestMobileConfigLoadConfig:
 
         cfg = Config.load_config()
 
+        assert cfg.keyword == "from-default"
+
+    def test_load_config_uses_env_override_for_config_local_jsonc(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        shared_fields = {
+            "server_url": "http://127.0.0.1:4723",
+            "users": ["A"],
+            "city": "北京",
+            "date": "01.01",
+            "price": "100元",
+            "price_index": 0,
+            "if_commit_order": False,
+        }
+        (tmp_path / "config.jsonc").write_text(json.dumps({
+            **shared_fields,
+            "keyword": "from-default",
+        }), encoding="utf-8")
+        (tmp_path / "config.local.jsonc").write_text(json.dumps({
+            **shared_fields,
+            "keyword": "from-local",
+        }), encoding="utf-8")
+        monkeypatch.setenv("HATICKETS_CONFIG_PATH", "config.local.jsonc")
+
+        cfg = Config.load_config()
+
         assert cfg.keyword == "from-local"
 
-    def test_save_config_dict_defaults_to_config_local_jsonc(self, tmp_path, monkeypatch):
+    def test_save_config_dict_defaults_to_config_jsonc(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("HATICKETS_CONFIG_PATH", raising=False)
         source = {
             "server_url": "http://127.0.0.1:4723",
             "keyword": "test",
@@ -500,8 +543,27 @@ class TestMobileConfigLoadConfig:
 
         save_config_dict(source)
 
-        assert (tmp_path / "config.local.jsonc").exists()
+        assert (tmp_path / "config.jsonc").exists()
         assert load_config_dict() == source
+
+    def test_save_config_dict_uses_env_override_for_config_local_jsonc(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        source = {
+            "server_url": "http://127.0.0.1:4723",
+            "keyword": "test",
+            "users": ["A"],
+            "city": "北京",
+            "date": "01.01",
+            "price": "100元",
+            "price_index": 0,
+            "if_commit_order": False,
+        }
+        monkeypatch.setenv("HATICKETS_CONFIG_PATH", "config.local.jsonc")
+
+        save_config_dict(source)
+
+        assert (tmp_path / "config.local.jsonc").exists()
+        assert load_config_dict("config.local.jsonc") == source
 
 
 # ---------------------------------------------------------------------------

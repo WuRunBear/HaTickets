@@ -21,6 +21,15 @@ _CONSOLE_FORMAT = "%(asctime)s [%(levelname)s] %(message)s"
 _FILE_FORMAT = "%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s"
 _DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+_ANSI_RESET = "\033[0m"
+_ANSI_COLORS = {
+    logging.DEBUG: "\033[2m",
+    logging.INFO: "\033[36m",
+    logging.WARNING: "\033[33m",
+    logging.ERROR: "\033[31m",
+    logging.CRITICAL: "\033[1;31m",
+}
+
 
 class _ShanghaiFormatter(logging.Formatter):
     """Logging formatter that uses Asia/Shanghai timezone for timestamps."""
@@ -32,10 +41,46 @@ class _ShanghaiFormatter(logging.Formatter):
         return dt.strftime(_DATE_FORMAT)
 
 
+class _ShanghaiColorFormatter(_ShanghaiFormatter):
+    """Console formatter with optional ANSI colors based on log level."""
+
+    def __init__(self, *args, enable_color: bool = False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.enable_color = enable_color
+
+    def format(self, record: logging.LogRecord) -> str:
+        rendered = super().format(record)
+        if not self.enable_color:
+            return rendered
+
+        color = _ANSI_COLORS.get(record.levelno)
+        if not color:
+            return rendered
+        return f"{color}{rendered}{_ANSI_RESET}"
+
+
+def _supports_color(stream) -> bool:
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("CLICOLOR_FORCE") == "1":
+        return True
+    if stream is None or not hasattr(stream, "isatty"):
+        return False
+    if not stream.isatty():
+        return False
+    return os.environ.get("TERM", "").lower() != "dumb"
+
+
 def _build_console_handler() -> logging.StreamHandler:
     handler = logging.StreamHandler()
     handler.setLevel(logging.INFO)
-    handler.setFormatter(_ShanghaiFormatter(fmt=_CONSOLE_FORMAT, datefmt=_DATE_FORMAT))
+    handler.setFormatter(
+        _ShanghaiColorFormatter(
+            fmt=_CONSOLE_FORMAT,
+            datefmt=_DATE_FORMAT,
+            enable_color=_supports_color(getattr(handler, "stream", None)),
+        )
+    )
     return handler
 
 

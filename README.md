@@ -20,25 +20,17 @@
 |------|------|--------|------|
 | `Mobile` | `mobile/` | 主推 | 走 Android 大麦 App，最接近真实购票流程 |
 | `Web` | `web/` | 可用但次选 | Selenium 控制 Chrome |
-| `Desktop` | `desktop/` | 不可用 | 官方渠道和风控已限制，当前不要再作为可执行方案使用 |
+| ~~`Desktop`~~ | ~~`desktop/`~~ | ~~不可用~~ | ~~官方渠道和风控已限制，当前不要再作为可执行方案使用~~ |
 
 > 如果你是第一次用，直接走 `Mobile + 安卓真机`。
 > 如果你只想先验证流程，不想误提交订单，先把 `if_commit_order` 设成 `false`。
 > 如果你看到旧文档里提到 `Desktop`，把它理解成“历史实现”，不要再按它准备环境。
 
-**当前主流程在设计使用`Mobile + 安卓真机`方案**
+**当前主流程按 `Mobile + 安卓真机` 设计。**
 
 先定位目标演出，再进入票档页和确认页；如果配置了 `item_url + auto_navigate`，脚本可以从大麦首页自动搜到目标演出。如果配置了 `if_commit_order: false`，脚本会停在“立即提交”之前，不会帮你支付。
 
 注意：`./mobile/scripts/start_ticket_grabbing.sh --yes` 只是“按当前配置执行”。它不会默认直接开始抢票，真正行为由 `probe_only` 和 `if_commit_order` 决定。
-
-如果你希望把“自然语言提示词”也接进来，例如：
-
-```bash
-./mobile/scripts/run_from_prompt.sh "帮我抢一张 4 月 6 号张杰的演唱会门票，内场"
-```
-
-现在脚本会先自动解析提示词，去大麦 App 搜索目标演出，并输出搜索候选和当前页面可见摘要供你确认。确认后会优先写入本地配置 [mobile/config.local.jsonc](./mobile/config.local.jsonc)，如果该文件不存在才回退到 [mobile/config.jsonc](./mobile/config.jsonc)，也可以继续执行 `probe` / `confirm` 模式。
 
 ## 推荐阅读顺序
 
@@ -52,17 +44,15 @@
 
 1. 连接安卓真机，并保持大麦 App 已登录
 2. 启动 Appium
-3. 复制一份本地配置 `mobile/config.local.jsonc`
+3. 准备 `mobile/config.jsonc`
 4. 先跑一次 `probe_only=true` 的安全探测
-5. 探测通过后，再跑“到确认页但不提交”
+5. 探测通过后，再进入正式抢票
 
-这 3 个阶段一定要区分清楚：
+这 2 个用户阶段一定要区分清楚：
 
 1. `probe_only=true`
    只是探测。会自动打开目标演出页，但会停在“立即购票/立即预订”之前，不会真正点击。
-2. `probe_only=false` 且 `if_commit_order=false`
-   会继续进入票档页和确认页，但停在“立即提交”之前，不会支付。
-3. `probe_only=false` 且 `if_commit_order=true`
+2. `probe_only=false` 且 `if_commit_order=true`
    才是正式提交模式，会尝试提交订单。
 
 ### 1. 安装依赖
@@ -114,10 +104,69 @@ adb devices
 
 ### 4. 准备本地配置
 
-优先使用 [mobile/config.local.jsonc](./mobile/config.local.jsonc)。如果没有，就先复制模板：
+开始前先确认这两件事：
+
+- 真机里已经安装并登录大麦 App
+- 你要用到的观演人已经在大麦 App 里添加成功
+
+#### 4.1 自动配置
+如果你不想一开始就手改配置，可以先用自然语言入口。前面 3 个步骤都完成后，再看这一节。
+
+先记住这几条：
+
+- 常用模式都建议直接写清楚观演人姓名
+- 如果提示词里没写观演人，或者“观演人数”和“购票张数”不一致，脚本会立即停止
+- 这种情况下不会继续搜索、连接 Appium，也不会写配置
+- 脚本会直接打印“可复制的正确命令”和“规范提示词”，你按输出替换后重试即可
+- 如果当前只连接了一台安卓设备，脚本会自动识别并临时修正 `udid / platform_version`
+- 在 `apply / probe` 模式下，这两个设备字段也会一起写回 `mobile/config.jsonc`
+- 推荐提示词格式：`帮张三、李四抢2张，4 月 6 号，张杰的演唱会门票，内场，票价 1680 元`
+- 使用时请把 `张三、李四` 替换成你自己已经在大麦 App 中添加成功的真实观演人姓名
+
+常用 3 个模式的关系要先看清楚：
+
+- `summary`：只预览，不写配置
+- `apply`：写入 `mobile/config.jsonc`，然后你再继续执行第 5 步
+- `probe`：写入 `mobile/config.jsonc`，并直接执行第 5 步“安全探测”
+
+和下面第 5、6 步的对应关系是：
+
+- `probe` 对应第 5 步：安全探测
+- 第 6 步才是正式抢票；为了避免误下单，`run_from_prompt` 不直接提供自动提交模式
+
+如果你只是想先看看 AI 识别得对不对，运行：
 
 ```bash
-cp mobile/config.example.jsonc mobile/config.local.jsonc
+./mobile/scripts/run_from_prompt.sh --mode summary --yes "帮张三、李四抢2张，4 月 6 号，张杰的演唱会门票，内场，票价 1680 元"
+```
+
+注意：
+
+- `summary` 能稳定给出搜索候选
+- 日期和票档摘要取决于页面当前是否已经展开到可识别状态，显示 `未识别` 也算正常，不代表脚本失效
+
+如果你确认摘要结果没问题，并且想只生成配置文件，运行：
+
+```bash
+./mobile/scripts/run_from_prompt.sh --mode apply --yes "帮张三、李四抢2张，4 月 6 号，张杰的演唱会门票，内场，票价 1680 元"
+```
+
+执行完 `apply` 后，直接跳到下面第 5 步继续即可，不需要再回头看 4.2。
+
+如果你想“生成配置 + 直接做安全探测”，运行：
+
+```bash
+./mobile/scripts/run_from_prompt.sh --mode probe --yes "帮张三、李四抢2张，4 月 6 号，张杰的演唱会门票，内场，票价 1680 元"
+```
+
+#### 4.2 手动配置
+
+如果你没有用 4.1 自动生成配置，或者你已经用 4.1 生成过配置、现在只是想手动检查和微调，再看这一节。
+
+普通用户直接维护 [mobile/config.jsonc](./mobile/config.jsonc) 即可；如果文件被你改乱了，可以先用模板覆盖：
+
+```bash
+cp mobile/config.example.jsonc mobile/config.jsonc
 ```
 
 然后把下面这几个字段改成你自己的真实值：
@@ -151,14 +200,61 @@ cp mobile/config.example.jsonc mobile/config.local.jsonc
 - `city / date / price`：尽量按 App 页面上的原文填写
 - `price_index`：文本匹配失败时的兜底索引，从 `0` 开始
 - `probe_only=true`：只探测，不下单，也不会点击“立即购票”
-- `if_commit_order=false`：到确认页也不提交
+- `if_commit_order=false`：保持安全状态，方便先做探测；真正抢票前再改成 `true`
 - `auto_navigate=true`：允许脚本从首页/搜索页自动进入目标演出
 
-下面这张图可以帮助你确认 `city / date / price` 的来源：
+开发者补充说明：
 
-![参数示意图](docs/images/example_detail.png)
+- `mobile/config.local.jsonc` 是可选的本地覆盖配置
+- 它不会提交到 GitHub，适合开发调试时放真机参数
+- 普通用户默认始终使用 [mobile/config.jsonc](./mobile/config.jsonc)
+- 如果你是开发者，需要显式通过 `--config mobile/config.local.jsonc` 或 `HATICKETS_CONFIG_PATH=mobile/config.local.jsonc` 才会启用本地覆盖配置
+
+#### 4.3 如果演唱会 12:00 开抢，建议几点启动脚本
+
+这个项目不是“11:59:59 再手忙脚乱点一次”的思路，而是**提前把环境和页面准备好，再在开售瞬间进入热路径**。
+
+实操建议：
+
+- 如果你已经手动停在目标演出详情页或票档页：提前 **1 到 2 分钟**
+- 如果你还要依赖自动导航、自动搜索、自动切页：提前 **3 到 5 分钟**
+- 如果是第一次跑、网络一般、手机状态不稳定：提前 **5 分钟以上**
+
+也就是说，如果开抢时间是 `12:00`，最稳妥的做法是：
+
+- 至少在 **11:58** 前启动 `./mobile/scripts/start_ticket_grabbing.sh --yes`
+- 更保守一点，直接在 **11:55 到 11:58** 之间启动
+
+推荐配置分两种：
+
+1. 你知道精确开抢时间
+   这是最推荐的方式。脚本会在开抢前 `countdown_lead_ms` 毫秒进入紧密轮询。
+
+```jsonc
+"sell_start_time": "2026-04-06T12:00:00+08:00",
+"countdown_lead_ms": 3000,
+"wait_cta_ready_timeout_ms": 0
+```
+
+这组配置的含义是：
+
+- 精确等到 `12:00`
+- 从 `11:59:57` 开始高频轮询
+- 不走“最长等待 CTA 60 秒”的备用策略
+
+2. 你不知道精确开抢时间，但会手动停在倒计时详情页
+   这时可以不填 `sell_start_time`，改用 CTA 等待模式。
+
+```jsonc
+"sell_start_time": null,
+"wait_cta_ready_timeout_ms": 60000
+```
+
+这组配置适合“我会提前守在详情页，等按钮从倒计时变成立即购买”的场景，但也更容易让人误以为脚本卡住了。对大多数普通用户来说，如果你已经知道开抢时间，优先用第一种配置。
 
 ### 5. 先跑安全探测
+
+这是**测试阶段 1**，不是正式抢票。
 
 如果你配置了 `item_url + auto_navigate=true`，手机停在大麦首页就可以。
 
@@ -168,7 +264,7 @@ cp mobile/config.example.jsonc mobile/config.local.jsonc
 
 - 这一步不是正式抢票
 - 这一步不会自动点击“立即购票”
-- 这一步的目标只是确认脚本能不能自动找到目标演出页
+- 这一步的目标只是**确认脚本能不能自动找到目标演出页**
 - 如果你执行后看到脚本停在详情页，这是 `probe_only=true` 的正常行为，不是卡死
 
 然后执行：
@@ -188,61 +284,71 @@ cp mobile/config.example.jsonc mobile/config.local.jsonc
 
 ```jsonc
 "probe_only": false,
-"if_commit_order": false
+"if_commit_order": true
 ```
 
-### 6. 再跑“不支付验证”
+### 6. 正式提交前再确认一次
 
-把本地配置改成：
+这一步才是**真正的抢票**。
+
+建议你把它理解成：
+
+- 第 5 步验证“脚本能不能找到正确的演出页”
+- 第 6 步才是“允许脚本真正提交订单”
+
+如果你是从 4.1 自动配置开始的，到了这里通常不需要重新生成配置，只需要沿用第 5 步已经探测通过的配置，把：
 
 ```jsonc
 "probe_only": false,
-"if_commit_order": false
+"if_commit_order": true
 ```
 
-然后再次执行：
+打开，然后再次执行：
 
 ```bash
 ./mobile/scripts/start_ticket_grabbing.sh --yes
 ```
 
-预期结果：
+预期逻辑是：
 
-- 会点击“立即购票/立即预订”
-- 自动选票
-- 自动进入“确认购买”页
-- 停在“立即提交”之前
-- 不会支付
+1. 脚本读取你在第 5 步已经探测通过的配置
+2. 自动进入目标演出页或直接从当前页继续
+3. 自动选择场次、票档、数量和观演人
+4. 到达“确认购买”页
+5. 这一次会继续点击“立即提交”
+6. 如果下单成功，通常会进入支付页；后续支付需要你自己完成
 
-### 7. 正式提交前再确认一次
+可以把 5、6 两步理解成这张图：
 
-只有前两轮都通过后，才考虑把：
+```mermaid
+flowchart TD
+    A["第 4 步：配置完成"] --> B["第 5 步：安全探测<br/>probe_only=true<br/>if_commit_order=false"]
+    B --> D["第 6 步：正式抢票<br/>probe_only=false<br/>if_commit_order=true"]
 
-```jsonc
-"if_commit_order": true
+    B --> B1["目标：确认脚本能找到正确演出页"]
+    D --> D1["目标：真正提交订单"]
 ```
 
-打开。
+第 6 步最容易出问题的地方，也建议你在开始前再核对一次：
 
-## 自然语言入口
+- `users` 是否就是本次实际要购票的观演人
+- `price` 和 `price_index` 是否已经在前面的探测和人工检查里确认过
+- 当前票档是不是可买状态，而不是“缺货登记”或“预约”
+- 手机和网络是否稳定，且大麦 App 仍然保持登录
 
-如果你不想手改配置，也可以用自然语言入口：
+如果第 6 步失败，优先这样排查：
 
-```bash
-./mobile/scripts/run_from_prompt.sh --mode summary --yes "帮我抢一张 4 月 6 号张杰的演唱会门票，内场"
-```
+1. 如果目标项目已经开售，但根本没有进入确认页，通常是 `price / price_index / city / date` 其中一项没对上
+2. 如果进入确认页但没提交成功，先检查是否触发了验证码、库存不足或已有未支付订单
+3. 如果跳到了别的演出页，说明当前页面状态不干净，先回到大麦首页再重新执行
+4. 如果日志里提示找不到观演人，先确认这些观演人已经在大麦 App 中添加并保存成功
 
-模式说明：
+如果你知道演唱会是 `12:00` 开抢，第 6 步开始前再记住这一条：
 
-- `summary`：只搜索并输出候选和当前页面可见摘要，不写配置
-- `apply`：写配置，不执行抢票
-- `probe`：写配置后直接做安全探测
-- `confirm`：写配置后验证到确认页前，不提交订单
-
-注意：
-
-- `summary` 能稳定给出搜索候选
-- 日期和票档摘要取决于页面当前是否已经展开到可识别状态，显示 `未识别` 也算正常，不代表脚本失效
+- 不要等到 `11:59:59` 才运行脚本
+- 已经验证过流程的情况下，至少提前 **1 到 2 分钟**
+- 需要自动导航或想更稳一点，提前 **3 到 5 分钟**
+- 绝大多数场景下，**11:55 到 11:58 启动**会比掐秒启动更稳
 
 ## 常见问题
 
@@ -274,7 +380,7 @@ export PATH="$ANDROID_HOME/platform-tools:$PATH"
 
 最常见原因是：
 
-- [mobile/config.local.jsonc](./mobile/config.local.jsonc) 里的 `users` 写的是占位符，不是真实名字
+- [mobile/config.jsonc](./mobile/config.jsonc) 里的 `users` 写的是占位符，不是真实名字
 - 你的大麦账号里还没有配置对应观演人
 
 ### 5. 脚本没有进入确认页

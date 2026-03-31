@@ -5,16 +5,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
 from statistics import mean
 
 try:
-    from mobile.config import Config
+    from mobile.config import CONFIG_OVERRIDE_ENV_VAR, Config
     from mobile.damai_app import DamaiBot
 except ImportError:
-    from config import Config
+    from config import CONFIG_OVERRIDE_ENV_VAR, Config
     from damai_app import DamaiBot
 
 
@@ -26,10 +27,11 @@ def _repo_root() -> Path:
 
 
 def _default_config_path() -> Path:
+    env_path = os.environ.get(CONFIG_OVERRIDE_ENV_VAR)
+    if env_path and env_path.strip():
+        return Path(env_path.strip()).expanduser()
+
     mobile_dir = _repo_root() / "mobile"
-    local_path = mobile_dir / "config.local.jsonc"
-    if local_path.exists():
-        return local_path
     return mobile_dir / "config.jsonc"
 
 
@@ -38,7 +40,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--config",
         default=str(_default_config_path()),
-        help="配置文件路径，默认优先使用 mobile/config.local.jsonc，否则回退到 mobile/config.jsonc",
+        help="配置文件路径，默认使用 mobile/config.jsonc；开发者可显式传入其他路径",
     )
     parser.add_argument("--runs", type=int, default=3, help="压测轮次，默认 3")
     parser.add_argument("--price", help="覆盖当前配置中的票档文本，例如 580元")

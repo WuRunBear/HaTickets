@@ -85,14 +85,14 @@ class DamaiBot:
         if self.config.probe_only:
             return "probe"
         if not self.config.if_commit_order:
-            return "confirm"
+            return "validation"
         return "submit"
 
     def _execution_mode_label(self):
         """Return a short user-facing label for the current execution mode."""
         labels = {
             "probe": "安全探测",
-            "confirm": "不支付验证",
+            "validation": "开发验证",
             "submit": "正式抢票",
         }
         return labels[self._execution_mode_key()]
@@ -101,7 +101,7 @@ class DamaiBot:
         """Return a user-facing description for the current execution mode."""
         descriptions = {
             "probe": "只检查目标演出页，不会点击“立即购票”",
-            "confirm": "会继续到确认页，但不会提交订单",
+            "validation": "会继续尝试进入确认页，但不会提交订单；这是开发调试路径",
             "submit": "会尝试提交订单",
         }
         return descriptions[self._execution_mode_key()]
@@ -117,7 +117,7 @@ class DamaiBot:
         prefix = f"{retry_prefix}" if retry_prefix else ""
         outcome_messages = {
             "probe_ready": "探测成功：已到目标演出页，购票控件已就绪",
-            "confirm_ready": "验证成功：已到订单确认页，未提交订单",
+            "validation_ready": "开发验证成功：已到订单确认页，未提交订单",
             "order_submitted": "抢票成功：已提交订单",
             "order_flow_completed": "抢票流程完成：已执行提交，等待后续结果确认",
         }
@@ -189,8 +189,68 @@ class DamaiBot:
 
         return capabilities
 
+    def _list_connected_device_ids(self):
+        """Return adb-connected Android device ids, or None when adb is unavailable."""
+        try:
+            result = subprocess.run(
+                ["adb", "devices"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            return None
+
+        device_ids = []
+        for line in result.stdout.splitlines():
+            if "\tdevice" not in line:
+                continue
+            device_ids.append(line.split("\t", 1)[0].strip())
+        return device_ids
+
+    def _read_device_android_version(self, udid):
+        """Return the Android version reported by adb for the target device."""
+        try:
+            result = subprocess.run(
+                ["adb", "-s", udid, "shell", "getprop", "ro.build.version.release"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            return None
+
+        return result.stdout.strip() or None
+
+    def _preflight_validate_device_target(self):
+        """Validate the configured udid/platform version before creating Appium session."""
+        if not self.config.udid:
+            return
+
+        connected_devices = self._list_connected_device_ids()
+        if connected_devices is None:
+            return
+
+        if self.config.udid not in connected_devices:
+            connected_text = "、".join(connected_devices) if connected_devices else "无"
+            raise ValueError(
+                f"当前配置 udid={self.config.udid!r} 不在已连接设备列表中（当前已连接: {connected_text}）。"
+                "请先执行 adb devices，并把 mobile/config.jsonc 中的 udid 改成当前真机序列号。"
+            )
+
+        if not self.config.platform_version:
+            return
+
+        actual_version = self._read_device_android_version(self.config.udid)
+        if actual_version and actual_version != self.config.platform_version:
+            raise ValueError(
+                f"当前配置 platform_version={self.config.platform_version!r} 与设备实际版本 {actual_version!r} 不一致。"
+                "请更新 mobile/config.jsonc 中的 platform_version。"
+            )
+
     def _setup_driver(self):
         """初始化驱动配置"""
+        self._preflight_validate_device_target()
         device_app_info = AppiumOptions()
         device_app_info.load_capabilities(self._build_capabilities())
         self.driver = webdriver.Remote(self.config.server_url, options=device_app_info)
@@ -870,10 +930,27 @@ class DamaiBot:
         if page_probe["state"] not in {"detail_page", "sku_page"}:
             return False
 
-        if not self.item_detail:
+        if not self.item_detail and not self.config.target_title and not self.config.keyword:
             return True
 
         return self._title_matches_target(self._get_detail_title_text())
+
+    def _exit_non_target_event_context(self, page_probe, max_back_steps=4, back_delay=0.5):
+        """Back out from a non-target detail/sku page until search/homepage is reachable."""
+        current_probe = page_probe
+
+        for _ in range(max_back_steps):
+            if current_probe["state"] not in {"detail_page", "sku_page"}:
+                return current_probe
+            if self._current_page_matches_target(current_probe):
+                return current_probe
+
+            self.driver.press_keycode(4)
+            time.sleep(back_delay)
+            self.dismiss_startup_popups()
+            current_probe = self.probe_current_page()
+
+        return current_probe
 
     def _recover_to_navigation_start(self, page_probe, max_back_steps=3):
         """Recover to a navigable page such as homepage or search page."""
@@ -1147,9 +1224,10 @@ class DamaiBot:
             return True
 
         if page_probe["state"] in {"detail_page", "sku_page"} and not self._current_page_matches_target(page_probe):
-            self.driver.press_keycode(4)
-            time.sleep(0.5)
-            page_probe = self.probe_current_page()
+            page_probe = self._exit_non_target_event_context(page_probe)
+
+        if page_probe["state"] in {"detail_page", "sku_page"} and self._current_page_matches_target(page_probe):
+            return True
 
         if page_probe["state"] == "homepage":
             logger.info("当前位于首页，开始自动搜索目标演出")
@@ -1179,9 +1257,14 @@ class DamaiBot:
             }
 
         if page_probe["state"] in {"detail_page", "sku_page"} and not self._current_page_matches_target(page_probe):
-            self.driver.press_keycode(4)
-            time.sleep(0.5)
-            page_probe = self.probe_current_page()
+            page_probe = self._exit_non_target_event_context(page_probe)
+
+        if page_probe["state"] in {"detail_page", "sku_page"} and self._current_page_matches_target(page_probe):
+            return {
+                "used_keyword": self.config.keyword,
+                "search_results": [],
+                "page_probe": page_probe,
+            }
 
         if page_probe["state"] == "homepage":
             if not self._open_search_from_homepage():
@@ -1875,10 +1958,10 @@ class DamaiBot:
                 (By.XPATH, '//*[contains(@text,"提交")]')
             ]
             if not self.config.if_commit_order:
-                self._set_run_outcome("confirm_ready")
-                logger.info("if_commit_order=False，等待确认页就绪后停止在提交订单前")
+                self._set_run_outcome("validation_ready")
+                logger.info("if_commit_order=False，当前按开发验证路径运行，到确认页后停止在提交订单前")
                 end_time = time.time()
-                logger.info(f"已到订单确认页，未提交订单，耗时: {end_time - start_time:.2f}秒")
+                logger.info(f"已到订单确认页，未提交订单（开发验证），耗时: {end_time - start_time:.2f}秒")
                 return True
 
             # 7. 提交订单
@@ -1952,11 +2035,15 @@ class DamaiBot:
 
 # 使用示例
 if __name__ == "__main__":
-    bot = DamaiBot()
+    bot = None
     try:
+        bot = DamaiBot()
         bot.run_with_retry(max_retries=3)
+    except (ValueError, RuntimeError) as exc:
+        logger.error(str(exc))
     finally:
         try:
-            bot.driver.quit()
+            if bot and bot.driver:
+                bot.driver.quit()
         except Exception:
             pass

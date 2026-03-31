@@ -1,12 +1,39 @@
 #!/bin/bash
 # 大麦抢票 - 抢票启动脚本
-# 使用方法: ./start_ticket_grabbing.sh [--yes]
+# 使用方法: ./start_ticket_grabbing.sh [--yes] [--config mobile/config.local.jsonc]
 
 ASSUME_YES=false
-for arg in "$@"; do
-    case "$arg" in
+CONFIG_OVERRIDE=""
+
+resolve_path() {
+    local target="$1"
+    if [[ "$target" = /* ]]; then
+        printf '%s\n' "$target"
+    else
+        printf '%s\n' "$(cd "$(dirname "$target")" && pwd)/$(basename "$target")"
+    fi
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
         -y|--yes)
             ASSUME_YES=true
+            shift
+            ;;
+        --config)
+            if [ -z "$2" ]; then
+                echo "❌ --config 需要一个文件路径"
+                exit 1
+            fi
+            CONFIG_OVERRIDE="$(resolve_path "$2")"
+            shift 2
+            ;;
+        --config=*)
+            CONFIG_OVERRIDE="$(resolve_path "${1#*=}")"
+            shift
+            ;;
+        *)
+            shift
             ;;
     esac
 done
@@ -41,10 +68,11 @@ echo "✅ Appium服务器运行正常"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOBILE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-LOCAL_CONFIG_FILE="$MOBILE_DIR/config.local.jsonc"
 DEFAULT_CONFIG_FILE="$MOBILE_DIR/config.jsonc"
-if [ -f "$LOCAL_CONFIG_FILE" ]; then
-    CONFIG_FILE="$LOCAL_CONFIG_FILE"
+if [ -n "$CONFIG_OVERRIDE" ]; then
+    CONFIG_FILE="$CONFIG_OVERRIDE"
+elif [ -n "$HATICKETS_CONFIG_PATH" ]; then
+    CONFIG_FILE="$(resolve_path "$HATICKETS_CONFIG_PATH")"
 else
     CONFIG_FILE="$DEFAULT_CONFIG_FILE"
 fi
@@ -52,11 +80,14 @@ fi
 # 检查配置文件
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "❌ 配置文件不存在: $CONFIG_FILE"
-    echo "   可先复制模板: cp mobile/config.example.jsonc mobile/config.local.jsonc"
+    echo "   可先复制模板: cp mobile/config.example.jsonc mobile/config.jsonc"
     exit 1
 fi
 
 echo "✅ 配置文件存在: $CONFIG_FILE"
+if [ "$CONFIG_FILE" != "$DEFAULT_CONFIG_FILE" ]; then
+    echo "🧑‍💻 当前使用显式指定的开发者配置覆盖文件"
+fi
 
 # 显示当前配置
 echo "📋 当前配置:"
@@ -66,8 +97,8 @@ if grep -Eq '"probe_only"[[:space:]]*:[[:space:]]*true' "$CONFIG_FILE"; then
     echo "🛡️ 当前模式: 安全探测模式"
     echo "   本次运行只会定位目标演出页，不会点击“立即购票/立即预订”"
 elif grep -Eq '"if_commit_order"[[:space:]]*:[[:space:]]*false' "$CONFIG_FILE"; then
-    echo "🧪 当前模式: 不支付验证模式"
-    echo "   本次运行会继续到确认页，但会停在“立即提交”之前"
+    echo "🧑‍💻 当前模式: 开发验证模式"
+    echo "   本次运行不会提交订单；这是开发调试路径，不属于 README 的普通用户流程"
 else
     echo "🔥 当前模式: 正式提交模式"
     echo "   本次运行会尝试提交订单，请再次确认配置"
@@ -99,9 +130,9 @@ echo ""
 
 # 运行抢票脚本（优先使用项目 .venv，其次使用 Poetry）
 if [ -x "$ROOT_DIR/.venv/bin/python" ]; then
-    "$ROOT_DIR/.venv/bin/python" damai_app.py
+    HATICKETS_CONFIG_PATH="$CONFIG_FILE" "$ROOT_DIR/.venv/bin/python" damai_app.py
 elif command -v poetry &> /dev/null; then
-    poetry run python damai_app.py
+    HATICKETS_CONFIG_PATH="$CONFIG_FILE" poetry run python damai_app.py
 else
     echo "❌ 未找到可用的 Python 环境"
     echo "   请先安装依赖："

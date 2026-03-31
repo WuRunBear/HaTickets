@@ -15,7 +15,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from shared.config_validator import validate_url, validate_non_empty_list
 
-DEFAULT_CONFIG_FILENAMES = ("config.local.jsonc", "config.jsonc")
+DEFAULT_CONFIG_FILENAME = "config.jsonc"
+LOCAL_CONFIG_FILENAME = "config.local.jsonc"
+CONFIG_OVERRIDE_ENV_VAR = "HATICKETS_CONFIG_PATH"
+DEFAULT_CONFIG_FILENAMES = (DEFAULT_CONFIG_FILENAME,)
 
 
 def _strip_jsonc_comments(text):
@@ -44,28 +47,36 @@ def _dump_config_dict(config_dict):
     return json.dumps(config_dict, ensure_ascii=False, indent=2) + "\n"
 
 
-def _resolve_existing_config_path(config_path=None):
+def _resolve_explicit_config_path(config_path=None):
     if config_path is not None:
-        return config_path
+        return os.fspath(config_path)
 
-    for candidate in DEFAULT_CONFIG_FILENAMES:
-        if os.path.exists(candidate):
-            return candidate
+    env_path = os.environ.get(CONFIG_OVERRIDE_ENV_VAR)
+    if env_path and env_path.strip():
+        return env_path.strip()
 
-    raise FileNotFoundError(f"配置文件未找到: {' 或 '.join(DEFAULT_CONFIG_FILENAMES)}")
+    return None
+
+
+def _resolve_existing_config_path(config_path=None):
+    explicit_path = _resolve_explicit_config_path(config_path)
+    if explicit_path is not None:
+        if os.path.exists(explicit_path):
+            return explicit_path
+        raise FileNotFoundError(f"配置文件未找到: {explicit_path}")
+
+    if os.path.exists(DEFAULT_CONFIG_FILENAME):
+        return DEFAULT_CONFIG_FILENAME
+
+    raise FileNotFoundError(f"配置文件未找到: {DEFAULT_CONFIG_FILENAME}")
 
 
 def _resolve_writable_config_path(config_path=None):
-    if config_path is not None:
-        return config_path
+    explicit_path = _resolve_explicit_config_path(config_path)
+    if explicit_path is not None:
+        return explicit_path
 
-    if os.path.exists(DEFAULT_CONFIG_FILENAMES[0]):
-        return DEFAULT_CONFIG_FILENAMES[0]
-
-    if os.path.exists(DEFAULT_CONFIG_FILENAMES[1]):
-        return DEFAULT_CONFIG_FILENAMES[1]
-
-    return DEFAULT_CONFIG_FILENAMES[0]
+    return DEFAULT_CONFIG_FILENAME
 
 
 def load_config_dict(config_path=None):

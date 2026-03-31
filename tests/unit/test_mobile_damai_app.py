@@ -155,6 +155,8 @@ class TestInitialization:
         )
 
         with patch("mobile.damai_app.Config.load_config", return_value=mock_config), \
+             patch.object(DamaiBot, "_list_connected_device_ids", return_value=["R58M123456A"]), \
+             patch.object(DamaiBot, "_read_device_android_version", return_value="14"), \
              patch("mobile.damai_app.webdriver.Remote", return_value=mock_driver), \
              patch("mobile.damai_app.AppiumOptions"):
             bot = DamaiBot()
@@ -198,6 +200,59 @@ class TestInitialization:
         assert bot.item_detail == item_detail
         assert bot.config.item_id == "1016133935724"
         assert bot.config.keyword == item_detail.search_keyword
+
+    def test_setup_driver_raises_clear_error_for_missing_udid(self):
+        cfg = Config(
+            server_url="http://127.0.0.1:4723",
+            device_name="Android",
+            udid="emulator-5554",
+            platform_version="15",
+            app_package="cn.damai",
+            app_activity=".launcher.splash.SplashMainActivity",
+            keyword="test",
+            users=["UserA"],
+            city="深圳",
+            date="12.06",
+            price="799元",
+            price_index=1,
+            if_commit_order=True,
+            probe_only=False,
+        )
+
+        with patch.object(DamaiBot, "_list_connected_device_ids", return_value=["c6c4eb67"]), \
+             patch("mobile.damai_app.AppiumOptions"), \
+             patch("mobile.damai_app.webdriver.Remote") as mock_remote:
+            with pytest.raises(ValueError, match="udid=.*不在已连接设备列表"):
+                DamaiBot(config=cfg)
+
+        mock_remote.assert_not_called()
+
+    def test_setup_driver_raises_clear_error_for_platform_version_mismatch(self):
+        cfg = Config(
+            server_url="http://127.0.0.1:4723",
+            device_name="Android",
+            udid="c6c4eb67",
+            platform_version="15",
+            app_package="cn.damai",
+            app_activity=".launcher.splash.SplashMainActivity",
+            keyword="test",
+            users=["UserA"],
+            city="深圳",
+            date="12.06",
+            price="799元",
+            price_index=1,
+            if_commit_order=True,
+            probe_only=False,
+        )
+
+        with patch.object(DamaiBot, "_list_connected_device_ids", return_value=["c6c4eb67"]), \
+             patch.object(DamaiBot, "_read_device_android_version", return_value="16"), \
+             patch("mobile.damai_app.AppiumOptions"), \
+             patch("mobile.damai_app.webdriver.Remote") as mock_remote:
+            with pytest.raises(ValueError, match="platform_version=.*不一致"):
+                DamaiBot(config=cfg)
+
+        mock_remote.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +414,41 @@ class TestAutoNavigation:
         bot.config.keyword = "张杰 演唱会"
 
         assert bot._title_matches_target("【北京】2026张杰未·LIVE—「开往1982」演唱会-北京站") is True
+
+    def test_current_page_matches_target_uses_keyword_when_item_detail_missing(self, bot):
+        bot.item_detail = None
+        bot.config.keyword = "余佳运 演唱会"
+
+        with patch.object(bot, "_get_detail_title_text", return_value="【北京】2026张杰未·LIVE—「开往1982」演唱会-北京站"):
+            assert bot._current_page_matches_target({"state": "sku_page"}) is False
+
+    def test_exit_non_target_event_context_backs_out_until_search_page(self, bot):
+        with patch.object(bot, "_current_page_matches_target", side_effect=[False, False]), \
+             patch.object(bot, "dismiss_startup_popups"), \
+             patch.object(bot, "probe_current_page", side_effect=[
+                 {"state": "detail_page"},
+                 {"state": "search_page"},
+             ]):
+            result = bot._exit_non_target_event_context({"state": "sku_page"})
+
+        assert result["state"] == "search_page"
+        assert bot.driver.press_keycode.call_count == 2
+
+    def test_discover_target_event_exits_wrong_sku_page_before_search(self, bot):
+        bot.config.keyword = "余佳运 演唱会"
+
+        with patch.object(bot, "_recover_to_navigation_start", return_value={"state": "sku_page"}), \
+             patch.object(bot, "_current_page_matches_target", side_effect=[False, False]), \
+             patch.object(bot, "_exit_non_target_event_context", return_value={"state": "search_page"}) as exit_context, \
+             patch.object(bot, "_submit_search_keyword", return_value=True) as submit_keyword, \
+             patch.object(bot, "collect_search_results", return_value=[{"score": 80, "title": "余佳运演唱会"}]), \
+             patch.object(bot, "_open_target_from_search_results", return_value=True), \
+             patch.object(bot, "probe_current_page", return_value={"state": "detail_page"}):
+            result = bot.discover_target_event(["余佳运 演唱会"], initial_probe={"state": "sku_page"})
+
+        assert result is not None
+        exit_context.assert_called_once()
+        submit_keyword.assert_called_once()
 
     def test_navigate_to_target_event_from_search_page(self, bot):
         with patch.object(bot, "_recover_to_navigation_start", return_value={"state": "search_page"}), \
@@ -644,8 +734,8 @@ class TestRunTicketGrabbing:
         assert result is True
         wait_submit_ready.assert_called_once()
 
-    def test_run_ticket_grabbing_logs_confirm_mode_clearly(self, bot, caplog):
-        """Confirm-page validation runs should be labeled clearly in logs."""
+    def test_run_ticket_grabbing_logs_validation_mode_clearly(self, bot, caplog):
+        """Commit-disabled runs should be labeled as developer validation in logs."""
         bot.config.if_commit_order = False
 
         with caplog.at_level("INFO", logger="mobile.damai_app"), \
@@ -677,8 +767,8 @@ class TestRunTicketGrabbing:
             result = bot.run_ticket_grabbing()
 
         assert result is True
-        assert "开始执行不支付验证" in caplog.text
-        assert "不会提交订单" in caplog.text
+        assert "开始执行开发验证" in caplog.text
+        assert "开发调试路径" in caplog.text
 
     def test_run_ticket_grabbing_continues_from_sku_page_when_commit_disabled(self, bot):
         """sku_page can continue directly to confirm page without returning to detail."""
@@ -1297,10 +1387,10 @@ class TestRunWithRetry:
         assert "探测成功" in caplog.text
         assert "抢票成功！" not in caplog.text
 
-    def test_run_with_retry_logs_confirm_success_clearly(self, bot, caplog):
-        """confirm-page validation success should mention no-submit explicitly."""
+    def test_run_with_retry_logs_validation_success_clearly(self, bot, caplog):
+        """Developer validation success should mention no-submit explicitly."""
         bot.config.if_commit_order = False
-        bot._last_run_outcome = "confirm_ready"
+        bot._last_run_outcome = "validation_ready"
 
         with caplog.at_level("INFO", logger="mobile.damai_app"), \
              patch.object(bot, "run_ticket_grabbing", return_value=True), \
@@ -1308,7 +1398,7 @@ class TestRunWithRetry:
             result = bot.run_with_retry(max_retries=1)
 
         assert result is True
-        assert "已到订单确认页，未提交订单" in caplog.text
+        assert "开发验证成功：已到订单确认页，未提交订单" in caplog.text
 
     def test_run_with_retry_logs_submit_success_when_order_submitted(self, bot, caplog):
         """Actual order submission keeps the purchase-success wording."""

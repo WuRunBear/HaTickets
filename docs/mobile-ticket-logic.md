@@ -14,11 +14,11 @@
 |------|------|
 | `damai_app.py` | 当前版本：`DamaiBot` 类，移动端抢票主流程 |
 | `config.py` | 配置容器 + `load_config()` 静态方法 |
-| `config.local.jsonc` | 用户本地配置文件（默认优先读取） |
-| `config.jsonc` | 仓库内安全模板 / 回退配置 |
+| `config.jsonc` | 默认运行配置，普通用户直接维护这个文件 |
+| `config.local.jsonc` | 开发者本地覆盖配置，默认不会自动启用 |
 | `config.example.jsonc` | 配置样例 |
 
-## 配置项 (`config.local.jsonc` / `config.jsonc`)
+## 配置项 (`config.jsonc` / `config.local.jsonc`)
 
 - `server_url`: Appium 服务器地址
 - `device_name`: Appium 设备名，模拟器/真机通用
@@ -48,7 +48,7 @@
 
 ```
 DamaiBot.__init__()
-  ├── Config.load_config()    # 默认优先读取 config.local.jsonc
+  ├── Config.load_config()    # 默认读取 config.jsonc；开发者可显式覆盖
   ├── _prepare_runtime_config()  # 解析 item_url/item_id，必要时自动补 keyword
   └── _setup_driver()         # 初始化 Appium 连接
 
@@ -232,7 +232,7 @@ flowchart TD
 
 **手动起跑热路径压测脚本**:
 - 入口: `./mobile/scripts/benchmark_hot_path.sh`
-- 默认优先读取 `mobile/config.local.jsonc`，否则回退到 `mobile/config.jsonc`；不会写回配置
+- 默认读取 `mobile/config.jsonc`；如果开发者显式设置 `--config` 或 `HATICKETS_CONFIG_PATH`，则按指定路径读取；不会写回配置
 - 会强制使用安全参数: `if_commit_order=false`、`auto_navigate=false`、`rush_mode=true`
 - 常用示例:
   `./mobile/scripts/benchmark_hot_path.sh --runs 5`
@@ -329,7 +329,7 @@ flowchart TD
 ## 真机配置建议
 
 1. 用 `adb devices` 确认真机已经连上
-2. 把设备序列号填进 `config.local.jsonc` 的 `udid`
+2. 把设备序列号填进 `config.jsonc` 的 `udid`
 3. `device_name` 可以保持 `Android`，也可以写成你自己的机型名
 4. 如果大麦版本或 ROM 定制导致启动页不同，再覆盖 `app_activity`
 

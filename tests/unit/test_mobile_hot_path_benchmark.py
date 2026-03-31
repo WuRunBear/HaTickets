@@ -54,11 +54,21 @@ def test_repo_root_returns_path():
     assert (root / "mobile").is_dir()
 
 
-def test_default_config_path_prefers_local_file(tmp_path):
+def test_default_config_path_defaults_to_shared_config(tmp_path):
     mobile_dir = tmp_path / "mobile"
     mobile_dir.mkdir()
     (mobile_dir / "config.local.jsonc").write_text("{}", encoding="utf-8")
     (mobile_dir / "config.jsonc").write_text("{}", encoding="utf-8")
+
+    with patch("mobile.hot_path_benchmark._repo_root", return_value=tmp_path):
+        assert hot_path_benchmark._default_config_path() == mobile_dir / "config.jsonc"
+
+
+def test_default_config_path_respects_env_override(tmp_path, monkeypatch):
+    mobile_dir = tmp_path / "mobile"
+    mobile_dir.mkdir()
+    (mobile_dir / "config.local.jsonc").write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("HATICKETS_CONFIG_PATH", str(mobile_dir / "config.local.jsonc"))
 
     with patch("mobile.hot_path_benchmark._repo_root", return_value=tmp_path):
         assert hot_path_benchmark._default_config_path() == mobile_dir / "config.local.jsonc"
@@ -73,20 +83,21 @@ def test_default_config_path_falls_back_to_shared_config(tmp_path):
         assert hot_path_benchmark._default_config_path() == mobile_dir / "config.jsonc"
 
 
-def test_default_config_path_returns_path():
+def test_default_config_path_returns_path(monkeypatch):
+    monkeypatch.delenv("HATICKETS_CONFIG_PATH", raising=False)
     path = _default_config_path()
-    assert path.name in ("config.local.jsonc", "config.jsonc")
+    assert path.name == "config.jsonc"
 
 
 # ---------------------------------------------------------------------------
 # parse_args
 # ---------------------------------------------------------------------------
 
-def test_parse_args_defaults_use_safe_local_config_path():
-    with patch("mobile.hot_path_benchmark._default_config_path", return_value="/tmp/config.local.jsonc"):
+def test_parse_args_defaults_use_shared_config_path():
+    with patch("mobile.hot_path_benchmark._default_config_path", return_value="/tmp/config.jsonc"):
         args = hot_path_benchmark.parse_args([])
 
-    assert args.config == "/tmp/config.local.jsonc"
+    assert args.config == "/tmp/config.jsonc"
     assert args.runs == 3
     assert args.json_output is False
 

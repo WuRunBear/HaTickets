@@ -44,11 +44,25 @@ _SEAT_HINTS = ("内场", "看台", "VIP", "vip", "至尊", "前排", "后排", "
 
 _UNAVAILABLE_TAGS = {"无票", "缺货", "售罄", "已售罄", "不可选", "暂不可售"}
 
+_ATTENDEE_NAME_PATTERN = r"[\u4e00-\u9fffA-Za-z·•]{2,16}"
+_ATTENDEE_SPLIT_PATTERN = re.compile(r"\s*(?:、|，|,|和|及|与)\s*")
+_ATTENDEE_PATTERNS = (
+    re.compile(
+        rf"(?:帮|给|替)(?P<names>{_ATTENDEE_NAME_PATTERN}(?:\s*(?:、|，|,|和|及|与)\s*{_ATTENDEE_NAME_PATTERN}){{0,4}})"
+        rf"(?=(?:抢|买|订))"
+    ),
+    re.compile(
+        rf"观演人(?:是|为)?(?P<names>{_ATTENDEE_NAME_PATTERN}(?:\s*(?:、|，|,|和|及|与)\s*{_ATTENDEE_NAME_PATTERN}){{0,4}})"
+        rf"(?:[，,。；;]|$)"
+    ),
+)
+
 
 @dataclass
 class PromptIntent:
     raw_prompt: str
     quantity: int = 1
+    attendee_names: list[str] = field(default_factory=list)
     date: Optional[str] = None
     city: Optional[str] = None
     artist: Optional[str] = None
@@ -114,6 +128,30 @@ def _parse_city(prompt: str) -> Optional[str]:
     if match:
         return match.group(1)
     return None
+
+
+def _parse_attendee_names(prompt: str) -> list[str]:
+    for pattern in _ATTENDEE_PATTERNS:
+        match = pattern.search(prompt)
+        if not match:
+            continue
+
+        raw_names = match.group("names")
+        names = []
+        seen = set()
+        for part in _ATTENDEE_SPLIT_PATTERN.split(raw_names):
+            candidate = _normalize_whitespace(part)
+            if not candidate:
+                continue
+            normalized = normalize_text(candidate)
+            if not normalized or normalized in seen:
+                continue
+            names.append(candidate)
+            seen.add(normalized)
+        if names:
+            return names
+
+    return []
 
 
 def _clean_prompt_for_keyword(prompt: str, removable_tokens: Optional[Iterable[str]] = None) -> str:
@@ -192,8 +230,10 @@ def parse_prompt(prompt: str) -> PromptIntent:
     normalized_prompt = _normalize_whitespace(prompt)
     parsed_date = _parse_date(normalized_prompt)
     parsed_city = _parse_city(normalized_prompt)
+    attendee_names = _parse_attendee_names(normalized_prompt)
     price_hint, seat_hint, numeric_price = _parse_price_hints(normalized_prompt)
     removable_tokens = []
+    removable_tokens.extend(attendee_names)
     if parsed_city:
         removable_tokens.extend([parsed_city, f"{parsed_city}站"])
     if seat_hint:
@@ -211,6 +251,7 @@ def parse_prompt(prompt: str) -> PromptIntent:
     intent = PromptIntent(
         raw_prompt=normalized_prompt,
         quantity=_parse_quantity(normalized_prompt),
+        attendee_names=attendee_names,
         date=parsed_date,
         city=parsed_city,
         artist=artist,
@@ -223,6 +264,14 @@ def parse_prompt(prompt: str) -> PromptIntent:
 
     if not intent.search_keyword:
         raise ValueError("无法从提示词中提取搜索关键词")
+
+    if not intent.attendee_names:
+        intent.notes.append("提示词中未识别到观演人姓名，自动写配置前需要补充")
+    elif len(intent.attendee_names) != intent.quantity:
+        intent.notes.append(
+            f"提示词中识别到 {len(intent.attendee_names)} 个观演人，但购票张数是 {intent.quantity}，"
+            "建议改成一致后再执行 apply / probe"
+        )
 
     if not intent.date:
         intent.notes.append("提示词中未识别到明确日期，后续需要基于查询结果确认场次")

@@ -1,12 +1,12 @@
 {
   "server_url": "http://127.0.0.1:4723",
   "device_name": "Android",
-  "udid": "emulator-5554",
-  "platform_version": "15",
+  "udid": "你的 adb devices 序列号",
+  "platform_version": "你的安卓版本",
   "app_package": "cn.damai",
   "app_activity": ".launcher.splash.SplashMainActivity",
-  // 用你自己的大麦详情页链接替换，脚本会自动提取 itemId
-  "item_url": "https://m.damai.cn/shows/item.html?itemId=1234567890123",
+  // 填写大麦详情页链接，脚本会自动提取 itemId 并尽量自动生成搜索关键词
+  "item_url": "https://m.damai.cn/shows/item.html?from=def&itemId=1016133935724",
   // 如果 item_url 解析失败，可保留 keyword 作为兜底；否则可写 null
   "keyword": null,
   // 如果是通过自然语言查询后写入的配置，这里会落精确标题/场馆，帮助自动搜索更稳定
@@ -16,26 +16,26 @@
   "users": [
     "你的真实观演人姓名"
   ],
-  // 尽量使用 App 当前页面上的原文
+  // 使用 App 当前页面上的原文
   "city": "你的演出城市",
-  // 尽量使用 App 当前页面上的原文
+  // 使用 App 当前页面上的原文
   "date": "你的场次日期",
-  // 尽量使用 App 当前页面上的原文
+  // 使用 App 当前页面上的原文
   "price": "你的票档原文",
   // 文本匹配失败时的兜底索引，从 0 开始
   "price_index": 5,
-  // false = 到确认页前停止；true = 会尝试提交订单
+  // false = 到确认页前停止；true = 会提交订单，也就是抢票模式开启
   "if_commit_order": false,
-  // true = 只做安全探测，停在“立即购票”前；false = 才会继续往后执行
+  // true = 是做安全探测，停在“立即购票”前；false = 才会继续往后执行
   "probe_only": true,
   // 自动从大麦首页/搜索页导航到目标演出
   "auto_navigate": true,
-  // 开售时间 (ISO格式，用于倒计时等待，null=立即购买)
+  // 开售时间（ISO 格式，推荐已知精确开抢时间时填写，例如 "2026-04-06T12:00:00+08:00"）
   "sell_start_time": null,
-  // 提前轮询时间 (毫秒)
+  // 提前轮询时间（毫秒）。默认 3000 表示在开抢前 3 秒进入紧密轮询
   "countdown_lead_ms": 3000,
-  // 如果你会手动停在倒计时详情页，可不填 sell_start_time，改为等待 CTA 变成“立即预定/立即购买”
-  "wait_cta_ready_timeout_ms": 60000,
+  // 仅在“你会手动停在倒计时详情页，但不知道精确开抢时间”时再设置；普通用户默认保持 0
+  "wait_cta_ready_timeout_ms": 0,
   // 快速重试次数 (不重建driver，第一轮会立即重试)
   "fast_retry_count": 8,
   // 快速重试间隔 (毫秒)
