@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 
 from appium import webdriver
@@ -65,6 +66,7 @@ class DamaiBot:
         self.config = config or Config.load_config()
         self.item_detail = None
         self.driver = None
+        self.d = None
         self.wait = None
         self._terminal_failure_reason = None
         self._last_run_outcome = None
@@ -251,6 +253,13 @@ class DamaiBot:
 
     def _setup_driver(self):
         """初始化驱动配置"""
+        if getattr(self.config, "driver_backend", "u2") == "appium":
+            self._setup_appium_driver()
+        else:
+            self._setup_u2_driver()
+
+    def _setup_appium_driver(self):
+        """初始化 Appium 驱动。"""
         self._preflight_validate_device_target()
         device_app_info = AppiumOptions()
         device_app_info.load_capabilities(self._build_capabilities())
@@ -270,22 +279,239 @@ class DamaiBot:
         # 极短的显式等待，抢票场景下速度优先
         self.wait = WebDriverWait(self.driver, 2)  # 从5秒减少到2秒
 
+    def _setup_u2_driver(self):
+        """初始化 uiautomator2 直连驱动。"""
+        import uiautomator2 as u2
+
+        serial = getattr(self.config, "serial", None) or self.config.udid or None
+        self.d = u2.connect(serial)
+        try:
+            self.d.settings["wait_timeout"] = 0
+            self.d.settings["operation_delay"] = (0, 0)
+        except Exception:
+            # 测试桩或精简驱动对象可能不支持 dict-style settings
+            pass
+        self.d.app_start(
+            self.config.app_package,
+            activity=self.config.app_activity,
+            stop=False,
+        )
+        self.driver = self.d
+        self.wait = None
+
+    @staticmethod
+    def _uiautomator_by_values():
+        values = {"android uiautomator", "android_uiautomator"}
+        try:
+            values.add(AppiumBy.ANDROID_UIAUTOMATOR)
+        except Exception:
+            pass
+        return values
+
+    def _using_u2(self):
+        return getattr(self.config, "driver_backend", "u2") == "u2"
+
+    def _find(self, by, value):
+        """统一查找入口，返回 u2 selector 或 Appium element。"""
+        if not self._using_u2():
+            return self.driver.find_element(by, value)
+        return self._appium_selector_to_u2(by, value)
+
+    def _find_all(self, by, value):
+        """统一查找列表，返回 u2 element list 或 Appium element list。"""
+        if not self._using_u2():
+            elements = self.driver.find_elements(by=by, value=value)
+            if isinstance(elements, (list, tuple)):
+                return list(elements)
+            try:
+                return list(elements)
+            except TypeError:
+                return []
+
+        if by in (By.ID, By.CLASS_NAME):
+            key = "resourceId" if by == By.ID else "className"
+            results = []
+            for index in range(128):
+                selector = self.d(**{key: value, "instance": index})
+                if not self._selector_exists(selector):
+                    break
+                results.append(selector)
+            return results
+
+        selector = self._appium_selector_to_u2(by, value)
+        if hasattr(selector, "all"):
+            return list(selector.all())
+        try:
+            return list(selector)
+        except TypeError:
+            return [selector] if self._selector_exists(selector) else []
+
+    def _appium_selector_to_u2(self, by, value):
+        if by == By.ID:
+            return self.d(resourceId=value)
+        if by == By.CLASS_NAME:
+            return self.d(className=value)
+        if by == By.XPATH:
+            return self.d.xpath(value)
+        if by in self._uiautomator_by_values():
+            return self._parse_uiselector(value)
+        raise ValueError(f"不支持的 by 类型: {by}")
+
+    def _parse_uiselector(self, uiselector_str):
+        """将常见 UiSelector 表达式转换为 u2 selector。"""
+        kwargs = {}
+        for pattern, key in [
+            (r'\.text\("([^"]+)"\)', "text"),
+            (r'\.textContains\("([^"]+)"\)', "textContains"),
+            (r'\.textMatches\("([^"]+)"\)', "textMatches"),
+            (r'\.className\("([^"]+)"\)', "className"),
+        ]:
+            match = re.search(pattern, uiselector_str)
+            if match:
+                kwargs[key] = match.group(1)
+
+        match = re.search(r"\.clickable\((true|false)\)", uiselector_str)
+        if match:
+            kwargs["clickable"] = match.group(1) == "true"
+
+        # Appium UiSelector 既出现过 instance(N) 也出现过 index(N)。
+        match = re.search(r"\.(instance|index)\((\d+)\)", uiselector_str)
+        if match:
+            kwargs["instance"] = int(match.group(2))
+
+        if not kwargs:
+            raise ValueError(f"无法解析 UiSelector: {uiselector_str!r}")
+        return self.d(**kwargs)
+
+    @staticmethod
+    def _selector_exists(selector):
+        exists = getattr(selector, "exists", None)
+        if callable(exists):
+            try:
+                return bool(exists(timeout=0))
+            except TypeError:
+                return bool(exists())
+            except Exception:
+                return False
+        if isinstance(exists, bool):
+            return exists
+        if hasattr(selector, "wait"):
+            try:
+                return bool(selector.wait(timeout=0))
+            except Exception:
+                return False
+        return False
+
+    def _wait_for_element(self, by, value, timeout=1.5):
+        """等待元素出现并返回元素对象。"""
+        if not self._using_u2():
+            return WebDriverWait(self.driver, timeout).until(
+                EC.presence_of_element_located((by, value))
+            )
+
+        selector = self._find(by, value)
+        if hasattr(selector, "wait") and selector.wait(timeout=timeout):
+            if hasattr(selector, "get"):
+                try:
+                    return selector.get()
+                except Exception:
+                    pass
+            return selector
+        raise TimeoutException(f"timeout waiting element: by={by}, value={value}")
+
+    def _element_rect(self, element):
+        """返回统一 rect 结构：{'x','y','width','height'}。"""
+        if hasattr(element, "rect"):
+            return element.rect
+
+        try:
+            bounds_tuple = getattr(element, "bounds", None)
+            if isinstance(bounds_tuple, (list, tuple)) and len(bounds_tuple) == 4:
+                left, top, right, bottom = [int(v) for v in bounds_tuple]
+                return {
+                    "x": left,
+                    "y": top,
+                    "width": max(0, right - left),
+                    "height": max(0, bottom - top),
+                }
+        except Exception:
+            pass
+
+        bounds = element.info.get("bounds") or {}
+        left = int(bounds.get("left", 0))
+        top = int(bounds.get("top", 0))
+        right = int(bounds.get("right", left))
+        bottom = int(bounds.get("bottom", top))
+        return {
+            "x": left,
+            "y": top,
+            "width": max(0, right - left),
+            "height": max(0, bottom - top),
+        }
+
+    @staticmethod
+    def _is_clickable(element):
+        if hasattr(element, "get_attribute"):
+            try:
+                return str(element.get_attribute("clickable")).lower() == "true"
+            except Exception:
+                return False
+        try:
+            return bool(element.info.get("clickable", False))
+        except Exception:
+            return False
+
+    @staticmethod
+    def _is_checked(element):
+        if hasattr(element, "get_attribute"):
+            try:
+                return str(element.get_attribute("checked")).lower() == "true"
+            except Exception:
+                return False
+        try:
+            return bool(element.info.get("checked", False))
+        except Exception:
+            return False
+
+    def _container_find_elements(self, container, by, value):
+        """容器内元素查找，兼容 Appium element 与 u2 selector。"""
+        if container is self.driver:
+            return self._find_all(by, value)
+
+        if not self._using_u2():
+            elements = container.find_elements(by=by, value=value)
+            if isinstance(elements, (list, tuple)):
+                return list(elements)
+            try:
+                return list(elements)
+            except TypeError:
+                return []
+
+        if by == By.ID:
+            results = []
+            for index in range(128):
+                child = container.child(resourceId=value, instance=index)
+                if not self._selector_exists(child):
+                    break
+                results.append(child)
+            return results
+        if by == By.CLASS_NAME:
+            results = []
+            for index in range(128):
+                child = container.child(className=value, instance=index)
+                if not self._selector_exists(child):
+                    break
+                results.append(child)
+            return results
+        if by == By.XPATH and value == ".//*":
+            return self._collect_descendant_texts(container, return_text=False)
+        return []
+
     def ultra_fast_click(self, by, value, timeout=1.5):
         """超快速点击 - 适合抢票场景"""
         try:
-            # 直接查找并点击，不等待可点击状态
-            el = WebDriverWait(self.driver, timeout).until(
-                EC.presence_of_element_located((by, value))
-            )
-            # 使用坐标点击更快
-            rect = el.rect
-            x = rect['x'] + rect['width'] // 2
-            y = rect['y'] + rect['height'] // 2
-            self.driver.execute_script("mobile: clickGesture", {
-                "x": x,
-                "y": y,
-                "duration": 50  # 极短点击时间
-            })
+            el = self._wait_for_element(by, value, timeout=timeout)
+            self._click_element_center(el, duration=50)
             return True
         except TimeoutException:
             return False
@@ -305,11 +531,8 @@ class DamaiBot:
         # 批量收集坐标，带超时等待
         for by, value in elements_info:
             try:
-                # 等待元素出现
-                el = WebDriverWait(self.driver, timeout).until(
-                    EC.presence_of_element_located((by, value))
-                )
-                rect = el.rect
+                el = self._wait_for_element(by, value, timeout=timeout)
+                rect = self._element_rect(el)
                 x = rect['x'] + rect['width'] // 2
                 y = rect['y'] + rect['height'] // 2
                 coordinates.append((x, y, value))
@@ -320,11 +543,7 @@ class DamaiBot:
         logger.info(f"成功找到 {len(coordinates)} 个用户")
         # 快速连续点击
         for i, (x, y, value) in enumerate(coordinates):
-            self.driver.execute_script("mobile: clickGesture", {
-                "x": x,
-                "y": y,
-                "duration": 30
-            })
+            self._click_coordinates(x, y, duration=30)
             if i < len(coordinates) - 1:
                 time.sleep(0.01)
             logger.debug(f"点击用户: {value}")
@@ -338,13 +557,8 @@ class DamaiBot:
 
         for selector_by, selector_value in selectors:
             try:
-                el = WebDriverWait(self.driver, timeout).until(
-                    EC.presence_of_element_located((selector_by, selector_value))
-                )
-                rect = el.rect
-                x = rect['x'] + rect['width'] // 2
-                y = rect['y'] + rect['height'] // 2
-                self.driver.execute_script("mobile: clickGesture", {"x": x, "y": y, "duration": 50})
+                el = self._wait_for_element(selector_by, selector_value, timeout=timeout)
+                self._click_element_center(el, duration=50)
                 return True
             except TimeoutException:
                 continue
@@ -358,9 +572,7 @@ class DamaiBot:
 
         for selector_by, selector_value in selectors:
             try:
-                WebDriverWait(self.driver, timeout).until(
-                    EC.presence_of_element_located((selector_by, selector_value))
-                )
+                self._wait_for_element(selector_by, selector_value, timeout=timeout)
                 return True
             except TimeoutException:
                 continue
@@ -479,16 +691,13 @@ class DamaiBot:
 
     def _attendee_checkbox_elements(self):
         try:
-            return self.driver.find_elements(By.ID, "cn.damai:id/checkbox")
+            return self._find_all(By.ID, "cn.damai:id/checkbox")
         except Exception:
             return []
 
     @staticmethod
     def _is_checkbox_selected(checkbox):
-        try:
-            return str(checkbox.get_attribute("checked")).lower() == "true"
-        except Exception:
-            return False
+        return DamaiBot._is_checked(checkbox)
 
     def _attendee_selected_count(self, checkbox_elements=None, use_source_fallback=True):
         """Count selected attendee checkboxes, with XML fallback for flaky checked attrs."""
@@ -501,7 +710,10 @@ class DamaiBot:
             return selected_count
 
         try:
-            source = self.driver.page_source or ""
+            if not self._using_u2():
+                source = self.driver.page_source or ""
+            else:
+                source = self.d.dump_hierarchy() or ""
         except Exception:
             return selected_count
         if not isinstance(source, str):
@@ -568,7 +780,7 @@ class DamaiBot:
 
         for checkbox_xpath in checkbox_xpaths:
             try:
-                checkboxes = self.driver.find_elements(By.XPATH, checkbox_xpath)
+                checkboxes = self._find_all(By.XPATH, checkbox_xpath)
             except Exception:
                 checkboxes = []
 
@@ -664,35 +876,59 @@ class DamaiBot:
     def _has_element(self, by, value):
         """快速判断元素是否存在，不等待点击状态。"""
         try:
-            return len(self.driver.find_elements(by=by, value=value)) > 0
+            if not self._using_u2():
+                return len(self.driver.find_elements(by=by, value=value)) > 0
+            return self._selector_exists(self._find(by, value))
         except Exception:
             return False
 
     def _get_current_activity(self):
         """获取当前 Activity，失败时返回空字符串。"""
         try:
-            return self.driver.current_activity or ""
+            if not self._using_u2():
+                return self.driver.current_activity or ""
+            return (self.d.app_current() or {}).get("activity", "") or ""
         except Exception:
             return ""
 
     def _click_element_center(self, element, duration=50):
         """Click the center point of an element via gesture."""
-        rect = element.rect
-        x = rect["x"] + rect["width"] // 2
-        y = rect["y"] + rect["height"] // 2
-        self._click_coordinates(x, y, duration=duration)
+        rect = self._element_rect(element)
+        if rect["width"] > 0 and rect["height"] > 0:
+            x = rect["x"] + rect["width"] // 2
+            y = rect["y"] + rect["height"] // 2
+            self._click_coordinates(x, y, duration=duration)
+            return
+
+        if hasattr(element, "click"):
+            element.click()
+            return
+
+        raise RuntimeError("无法定位元素中心点用于点击")
 
     def _click_coordinates(self, x, y, duration=50):
         """Click a fixed screen coordinate via gesture."""
-        self.driver.execute_script(
-            "mobile: clickGesture",
-            {"x": x, "y": y, "duration": duration},
-        )
+        x = int(x)
+        y = int(y)
+        if not self._using_u2():
+            self.driver.execute_script(
+                "mobile: clickGesture",
+                {"x": x, "y": y, "duration": duration},
+            )
+            return
+
+        if duration <= 50:
+            self.d.click(x, y)
+        else:
+            self.d.long_click(x, y, max(duration / 1000, 0.05))
 
     def _press_keycode_safe(self, keycode, context=""):
         """Press an Android keycode with error handling to avoid hard crashes."""
         try:
-            self.driver.press_keycode(keycode)
+            if not self._using_u2():
+                self.driver.press_keycode(keycode)
+            else:
+                self.d.press(keycode)
             return True
         except Exception as exc:
             suffix = f"（{context}）" if context else ""
@@ -721,12 +957,12 @@ class DamaiBot:
         ]
         for by, value in selectors:
             try:
-                elements = self.driver.find_elements(by=by, value=value)
+                elements = self._find_all(by, value)
             except Exception:
                 continue
             if not elements:
                 continue
-            rect = elements[0].rect
+            rect = self._element_rect(elements[0])
             return (
                 rect["x"] + rect["width"] // 2,
                 rect["y"] + rect["height"] // 2,
@@ -736,39 +972,19 @@ class DamaiBot:
     def _get_price_option_coordinates_by_config_index(self):
         """Capture the configured price card center so rush mode can tap by coordinate."""
         try:
-            price_container = self.driver.find_element(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout")
+            price_container = self._find(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout")
         except Exception:
             return None
 
         try:
-            target_card = price_container.find_element(
-                AppiumBy.ANDROID_UIAUTOMATOR,
-                (
-                    'new UiSelector().className("android.widget.FrameLayout")'
-                    f'.clickable(true).instance({self.config.price_index})'
-                ),
-            )
-            rect = target_card.rect
-            return (
-                rect["x"] + rect["width"] // 2,
-                rect["y"] + rect["height"] // 2,
-            )
-        except Exception:
-            pass
-
-        try:
-            cards = price_container.find_elements(By.CLASS_NAME, "android.widget.FrameLayout")
+            cards = self._container_find_elements(price_container, By.CLASS_NAME, "android.widget.FrameLayout")
         except Exception:
             return None
-
-        if not isinstance(cards, (list, tuple)):
-            return None
-
-        clickable_cards = [card for card in cards if str(card.get_attribute("clickable")).lower() == "true"]
+        clickable_cards = [card for card in cards if self._is_clickable(card)]
         if not (0 <= self.config.price_index < len(clickable_cards)):
             return None
 
-        rect = clickable_cards[self.config.price_index].rect
+        rect = self._element_rect(clickable_cards[self.config.price_index])
         return (
             rect["x"] + rect["width"] // 2,
             rect["y"] + rect["height"] // 2,
@@ -777,12 +993,12 @@ class DamaiBot:
     def _safe_element_text(self, container, by, value):
         """Read the first child text if present."""
         try:
-            elements = container.find_elements(by=by, value=value)
+            elements = self._container_find_elements(container, by, value)
         except Exception:
             return ""
 
         for element in elements:
-            text = self._normalize_element_text(getattr(element, "text", ""))
+            text = self._normalize_element_text(self._read_element_text(element))
             if text:
                 return text
         return ""
@@ -790,34 +1006,90 @@ class DamaiBot:
     def _safe_element_texts(self, container, by, value):
         """Read all non-empty child texts if present."""
         try:
-            elements = container.find_elements(by=by, value=value)
+            elements = self._container_find_elements(container, by, value)
         except Exception:
             return []
 
         texts = []
         seen = set()
         for element in elements:
-            text = self._normalize_element_text(getattr(element, "text", ""))
+            text = self._normalize_element_text(self._read_element_text(element))
             if not text or text in seen:
                 continue
             texts.append(text)
             seen.add(text)
         return texts
 
-    def _collect_descendant_texts(self, container):
+    @staticmethod
+    def _parse_bounds(bounds_text):
+        match = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds_text or "")
+        if not match:
+            return None
+        left, top, right, bottom = map(int, match.groups())
+        return left, top, right, bottom
+
+    @staticmethod
+    def _bounds_inside(inner, outer):
+        return (
+            inner[0] >= outer[0]
+            and inner[1] >= outer[1]
+            and inner[2] <= outer[2]
+            and inner[3] <= outer[3]
+        )
+
+    def _collect_descendant_texts(self, container, return_text=True):
         """Collect all visible descendant texts under a container."""
+        if not self._using_u2():
+            descendants = []
+            try:
+                descendants = container.find_elements(By.XPATH, ".//*")
+            except Exception:
+                descendants = []
+
+            if not return_text:
+                return descendants
+
+            texts = []
+            seen = set()
+            for element in descendants:
+                try:
+                    text = self._normalize_element_text(self._read_element_text(element))
+                except Exception:
+                    text = ""
+                if not text or text in seen:
+                    continue
+                texts.append(text)
+                seen.add(text)
+            return texts
+
+        # u2: parse hierarchy XML and keep only nodes inside container bounds.
         texts = []
         seen = set()
+        nodes = []
         try:
-            descendants = container.find_elements(By.XPATH, ".//*")
+            container_bounds = container.info.get("bounds")
+            if not container_bounds:
+                return [] if return_text else []
+            outer = (
+                int(container_bounds.get("left", 0)),
+                int(container_bounds.get("top", 0)),
+                int(container_bounds.get("right", 0)),
+                int(container_bounds.get("bottom", 0)),
+            )
+            root = ET.fromstring(self.d.dump_hierarchy())
+            for node in root.iter("node"):
+                parsed = self._parse_bounds(node.get("bounds", ""))
+                if parsed is None or not self._bounds_inside(parsed, outer):
+                    continue
+                nodes.append(node)
         except Exception:
-            descendants = []
+            return [] if return_text else []
 
-        for element in descendants:
-            try:
-                text = self._normalize_element_text(getattr(element, "text", ""))
-            except Exception:
-                text = ""
+        if not return_text:
+            return nodes
+
+        for node in nodes:
+            text = self._normalize_element_text(node.get("text", ""))
             if not text or text in seen:
                 continue
             texts.append(text)
@@ -829,6 +1101,34 @@ class DamaiBot:
         """Normalize UI text values; ignore non-string placeholders from mocked elements."""
         if isinstance(value, str):
             return value.strip()
+        return ""
+
+    def _read_element_text(self, element):
+        """Read element text across Appium and u2 element types."""
+        try:
+            value = getattr(element, "text", "")
+            if isinstance(value, str):
+                return value
+        except Exception:
+            pass
+
+        try:
+            if hasattr(element, "get_text"):
+                value = element.get_text()
+                if isinstance(value, str):
+                    return value
+        except Exception:
+            pass
+
+        try:
+            info = getattr(element, "info", {})
+            if isinstance(info, dict):
+                value = info.get("text", "")
+                if isinstance(value, str):
+                    return value
+        except Exception:
+            pass
+
         return ""
 
     def _build_compound_price_text(self, container):
@@ -974,14 +1274,12 @@ class DamaiBot:
     def _click_visible_price_option(self, card_index):
         """Click a visible price card by its clickable-card index."""
         try:
-            price_container = self.driver.find_element(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout")
-            cards = price_container.find_elements(By.CLASS_NAME, "android.widget.FrameLayout")
+            price_container = self._find(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout")
+            cards = self._container_find_elements(price_container, By.CLASS_NAME, "android.widget.FrameLayout")
         except Exception:
             return False
 
-        if not isinstance(cards, (list, tuple)):
-            return False
-        clickable_cards = [card for card in cards if str(card.get_attribute("clickable")).lower() == "true"]
+        clickable_cards = [card for card in cards if self._is_clickable(card)]
         if 0 <= card_index < len(clickable_cards):
             self._click_element_center(clickable_cards[card_index], duration=30)
             return True
@@ -1096,24 +1394,43 @@ class DamaiBot:
             return True
 
         logger.info(f"文本匹配失败，使用索引选择票价: price_index={self.config.price_index}")
+        logger.info(f"通过配置索引直接选择票价: price_index={self.config.price_index}")
         try:
-            price_container = self.driver.find_element(By.ID, 'cn.damai:id/project_detail_perform_price_flowlayout')
-            target_price = price_container.find_element(
-                AppiumBy.ANDROID_UIAUTOMATOR,
-                f'new UiSelector().className("android.widget.FrameLayout").index({self.config.price_index}).clickable(true)'
-            )
-            self.driver.execute_script('mobile: clickGesture', {'elementId': target_price.id})
-            return True
-        except Exception as e:
-            logger.warning(f"票价选择失败，启动备用方案: {e}")
-            try:
-                price_container = self.wait.until(
-                    EC.presence_of_element_located((By.ID, 'cn.damai:id/project_detail_perform_price_flowlayout')))
+            price_container = self._find(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout")
+            if not self._using_u2():
                 target_price = price_container.find_element(
                     AppiumBy.ANDROID_UIAUTOMATOR,
                     f'new UiSelector().className("android.widget.FrameLayout").index({self.config.price_index}).clickable(true)'
                 )
-                self.driver.execute_script('mobile: clickGesture', {'elementId': target_price.id})
+            else:
+                cards = self._container_find_elements(price_container, By.CLASS_NAME, "android.widget.FrameLayout")
+                clickable_cards = [card for card in cards if self._is_clickable(card)]
+                target_price = clickable_cards[self.config.price_index]
+            self._click_element_center(target_price, duration=30)
+            return True
+        except Exception as e:
+            logger.warning(f"票价选择失败，启动备用方案: {e}")
+            try:
+                if not self._using_u2() and self.wait is not None:
+                    price_container = self.wait.until(
+                        EC.presence_of_element_located((By.ID, "cn.damai:id/project_detail_perform_price_flowlayout"))
+                    )
+                else:
+                    price_container = self._wait_for_element(
+                        By.ID,
+                        "cn.damai:id/project_detail_perform_price_flowlayout",
+                        timeout=2,
+                    )
+                if not self._using_u2():
+                    target_price = price_container.find_element(
+                        AppiumBy.ANDROID_UIAUTOMATOR,
+                        f'new UiSelector().className("android.widget.FrameLayout").index({self.config.price_index}).clickable(true)'
+                    )
+                else:
+                    cards = self._container_find_elements(price_container, By.CLASS_NAME, "android.widget.FrameLayout")
+                    clickable_cards = [card for card in cards if self._is_clickable(card)]
+                    target_price = clickable_cards[self.config.price_index]
+                self._click_element_center(target_price, duration=30)
                 return True
             except Exception as backup_error:
                 logger.warning(f"备用票价选择也失败: {backup_error}")
@@ -1219,7 +1536,10 @@ class DamaiBot:
                 return current_probe
 
         try:
-            self.driver.activate_app(self.config.app_package)
+            if not self._using_u2():
+                self.driver.activate_app(self.config.app_package)
+            else:
+                self.d.app_start(self.config.app_package, stop=False)
             time.sleep(1)
         except Exception:
             pass
@@ -1282,9 +1602,7 @@ class DamaiBot:
             return False
 
         try:
-            search_input = WebDriverWait(self.driver, 3).until(
-                EC.presence_of_element_located((By.ID, "cn.damai:id/header_search_v2_input"))
-            )
+            search_input = self._wait_for_element(By.ID, "cn.damai:id/header_search_v2_input", timeout=3)
         except TimeoutException:
             logger.warning("未找到搜索输入框")
             return False
@@ -1292,26 +1610,39 @@ class DamaiBot:
         self._click_element_center(search_input)
         time.sleep(0.2)
 
-        current_text = (search_input.text or "").strip()
+        current_text = self._read_element_text(search_input).strip()
         if current_text and current_text != self.config.keyword:
             if self._has_element(By.ID, "cn.damai:id/header_search_v2_input_delete"):
                 self.ultra_fast_click(By.ID, "cn.damai:id/header_search_v2_input_delete", timeout=0.8)
                 time.sleep(0.1)
             else:
                 try:
-                    search_input.clear()
+                    if hasattr(search_input, "clear"):
+                        search_input.clear()
+                    elif hasattr(search_input, "set_text"):
+                        search_input.set_text("")
                 except Exception:
                     pass
 
-        if (search_input.text or "").strip() != self.config.keyword:
-            search_input.send_keys(self.config.keyword)
+        if self._read_element_text(search_input).strip() != self.config.keyword:
+            try:
+                if hasattr(search_input, "send_keys"):
+                    search_input.send_keys(self.config.keyword)
+                elif hasattr(search_input, "set_text"):
+                    search_input.set_text(self.config.keyword)
+            except Exception:
+                return False
 
         if not self._press_keycode_safe(66, context="提交搜索关键词"):
             return False
         try:
-            WebDriverWait(self.driver, 5).until(
-                lambda drv: len(drv.find_elements(By.ID, "cn.damai:id/ll_search_item")) > 0
-            )
+            deadline = time.time() + 5
+            while time.time() < deadline:
+                if self._find_all(By.ID, "cn.damai:id/ll_search_item"):
+                    break
+                time.sleep(0.05)
+            else:
+                raise TimeoutException("搜索结果加载超时")
         except TimeoutException:
             logger.warning("搜索结果加载超时")
             return False
@@ -1373,25 +1704,28 @@ class DamaiBot:
 
     def _scroll_search_results(self):
         """Scroll the search result list upward."""
-        self.driver.execute_script(
-            "mobile: swipeGesture",
-            {
-                "left": 96,
-                "top": 520,
-                "width": 1088,
-                "height": 1500,
-                "direction": "up",
-                "percent": 0.55,
-                "speed": 5000,
-            },
-        )
+        if not self._using_u2():
+            self.driver.execute_script(
+                "mobile: swipeGesture",
+                {
+                    "left": 96,
+                    "top": 520,
+                    "width": 1088,
+                    "height": 1500,
+                    "direction": "up",
+                    "percent": 0.55,
+                    "speed": 5000,
+                },
+            )
+            return
+        self.d.swipe(540, 1770, 540, 520, duration=0.3)
 
     def _open_target_from_search_results(self, max_scrolls=2):
         """Open the best-matching event from search results."""
         seen_titles = set()
 
         for _ in range(max_scrolls + 1):
-            result_cards = self.driver.find_elements(By.ID, "cn.damai:id/ll_search_item")
+            result_cards = self._find_all(By.ID, "cn.damai:id/ll_search_item")
             best_match = None
             best_score = -1
 
@@ -1431,7 +1765,7 @@ class DamaiBot:
         collected = []
 
         for scroll_index in range(max_scrolls + 1):
-            result_cards = self.driver.find_elements(By.ID, "cn.damai:id/ll_search_item")
+            result_cards = self._find_all(By.ID, "cn.damai:id/ll_search_item")
             for card in result_cards:
                 title_text = self._safe_element_text(card, By.ID, "cn.damai:id/tv_project_name")
                 if not title_text:
@@ -1605,9 +1939,9 @@ class DamaiBot:
                 _preselect_deadline = time.time() + 0.3
                 if self.config.date:
                     while time.time() < _preselect_deadline:
-                        _date_els = self.driver.find_elements(
-                            by=AppiumBy.ANDROID_UIAUTOMATOR,
-                            value=f'new UiSelector().textContains("{self.config.date}")',
+                        _date_els = self._find_all(
+                            AppiumBy.ANDROID_UIAUTOMATOR,
+                            f'new UiSelector().textContains("{self.config.date}")',
                         )
                         if _date_els:
                             self._click_element_center(_date_els[0], duration=30)
@@ -1622,7 +1956,7 @@ class DamaiBot:
                             (AppiumBy.ANDROID_UIAUTOMATOR, f'new UiSelector().text("{self.config.city}")'),
                             (AppiumBy.ANDROID_UIAUTOMATOR, f'new UiSelector().textContains("{self.config.city}")'),
                         ):
-                            _city_els = self.driver.find_elements(by=_city_by, value=_city_val)
+                            _city_els = self._find_all(_city_by, _city_val)
                             if _city_els:
                                 self._click_element_center(_city_els[0], duration=30)
                                 logger.info(f"极速模式预选城市: {self.config.city}")
@@ -1691,9 +2025,7 @@ class DamaiBot:
     def _purchase_bar_text_ready(self):
         """Inspect the detail-page CTA text and decide whether sale has opened."""
         try:
-            purchase_bar = self.driver.find_element(
-                By.ID, "cn.damai:id/trade_project_detail_purchase_status_bar_container_fl"
-            )
+            purchase_bar = self._find(By.ID, "cn.damai:id/trade_project_detail_purchase_status_bar_container_fl")
         except Exception:
             return False
 
@@ -1934,8 +2266,8 @@ class DamaiBot:
         """Return visible date options on the current page."""
         dates = []
         seen = set()
-        for element in self.driver.find_elements(By.ID, "cn.damai:id/tv_date"):
-            text = (element.text or "").strip()
+        for element in self._find_all(By.ID, "cn.damai:id/tv_date"):
+            text = self._read_element_text(element).strip()
             if not text or text in seen:
                 continue
             dates.append(text)
@@ -1945,25 +2277,26 @@ class DamaiBot:
     def get_visible_price_options(self, allow_ocr=True):
         """Return visible price options from the current sku page."""
         try:
-            price_container = self.driver.find_element(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout")
+            price_container = self._find(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout")
         except Exception:
             return []
 
         options = []
         try:
-            cards = price_container.find_elements(By.CLASS_NAME, "android.widget.FrameLayout")
+            cards = self._container_find_elements(price_container, By.CLASS_NAME, "android.widget.FrameLayout")
         except Exception:
             cards = []
 
-        if not isinstance(cards, (list, tuple)):
-            return []
-        cards = [card for card in cards if str(card.get_attribute("clickable")).lower() == "true"]
+        cards = [card for card in cards if self._is_clickable(card)]
         screenshot_path = None
         if allow_ocr and cards and _MAGICK_BIN and _TESSERACT_BIN:
             try:
                 with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_file:
                     screenshot_path = tmp_file.name
-                self.driver.get_screenshot_as_file(screenshot_path)
+                if not self._using_u2():
+                    self.driver.get_screenshot_as_file(screenshot_path)
+                else:
+                    self.d.screenshot(screenshot_path)
             except Exception:
                 screenshot_path = None
 
@@ -1978,7 +2311,7 @@ class DamaiBot:
                     break
 
             if not text and screenshot_path:
-                text = self._ocr_price_text_from_card(screenshot_path, card.rect)
+                text = self._ocr_price_text_from_card(screenshot_path, self._element_rect(card))
                 if text:
                     source = "ocr"
 
@@ -2255,20 +2588,16 @@ class DamaiBot:
 
             # 4. 数量选择
             logger.info("选择数量...")
-            if self.driver.find_elements(by=By.ID, value='layout_num'):
+            if self._find_all(By.ID, "layout_num"):
                 clicks_needed = len(self.config.users) - 1
                 if clicks_needed > 0:
                     try:
-                        plus_button = self.driver.find_element(By.ID, 'img_jia')
+                        plus_button = self._find(By.ID, "img_jia")
                         for i in range(clicks_needed):
-                            rect = plus_button.rect
+                            rect = self._element_rect(plus_button)
                             x = rect['x'] + rect['width'] // 2
                             y = rect['y'] + rect['height'] // 2
-                            self.driver.execute_script("mobile: clickGesture", {
-                                "x": x,
-                                "y": y,
-                                "duration": 50
-                            })
+                            self._click_coordinates(x, y, duration=50)
                             time.sleep(0.02)
                     except Exception as e:
                         logger.error(f"快速点击加号失败: {e}")
@@ -2285,7 +2614,7 @@ class DamaiBot:
                 buy_clicked = True
             elif self.config.rush_mode:
                 try:
-                    buy_button = self.driver.find_element(By.ID, "btn_buy_view")
+                    buy_button = self._find(By.ID, "btn_buy_view")
                     burst_count = 1 if not self.config.if_commit_order else 2
                     self._burst_click_element_center(buy_button, count=burst_count, interval_ms=25, duration=25)
                     buy_clicked = True

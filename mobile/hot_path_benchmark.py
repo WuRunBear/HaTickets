@@ -131,10 +131,18 @@ def _fast_check_detail_page(bot: DamaiBot) -> dict | None:
     """
     from selenium.webdriver.common.by import By
     try:
-        els = bot.driver.find_elements(
-            by=By.ID,
-            value="cn.damai:id/trade_project_detail_purchase_status_bar_container_fl",
-        )
+        if hasattr(bot, "_find_all"):
+            els = bot._find_all(By.ID, "cn.damai:id/trade_project_detail_purchase_status_bar_container_fl")
+        else:
+            els = bot.driver.find_elements(
+                by=By.ID,
+                value="cn.damai:id/trade_project_detail_purchase_status_bar_container_fl",
+            )
+        if not isinstance(els, (list, tuple)):
+            try:
+                els = list(els)
+            except TypeError:
+                return None
         if els:
             return {"state": "detail_page", "purchase_button": True, "price_container": False,
                     "quantity_picker": False, "submit_button": False, "reservation_mode": False,

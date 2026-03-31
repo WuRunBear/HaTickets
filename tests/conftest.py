@@ -42,6 +42,11 @@ sys.modules["appium.options.common.base"] = _mock_appium.options.common.base
 sys.modules["appium.webdriver.common"] = _mock_appium.webdriver.common
 sys.modules["appium.webdriver.common.appiumby"] = _mock_appium.webdriver.common.appiumby
 
+# Mock uiautomator2 package for tests that exercise u2 backend without real devices
+_mock_uiautomator2 = Mock()
+_mock_uiautomator2.connect = Mock()
+sys.modules["uiautomator2"] = _mock_uiautomator2
+
 
 @pytest.fixture
 def temp_dir() -> Generator[Path, None, None]:
@@ -216,6 +221,7 @@ def mobile_config():
     from mobile.config import Config as MobileConfig
     return MobileConfig(
         server_url="http://127.0.0.1:4723",
+        driver_backend="appium",
         keyword="test",
         users=["UserA", "UserB"],
         city="深圳",

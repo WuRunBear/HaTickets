@@ -22,6 +22,7 @@ class TestConfigToBotInit:
         """Config.load_config → DamaiBot.__init__ → driver setup chain works."""
         monkeypatch.chdir(tmp_path)
         config_data = {
+            "driver_backend": "appium",
             "server_url": "http://127.0.0.1:4723",
             "device_name": "Android",
             "udid": None,
@@ -71,6 +72,7 @@ class TestFullTicketGrabbingFlow:
             date="12.06", price="799元", price_index=1,
             if_commit_order=True,
             probe_only=False,
+            driver_backend="appium",
         )
 
         with patch("mobile.damai_app.Config.load_config", return_value=mock_config), \
@@ -126,6 +128,7 @@ class TestFullTicketGrabbingFlow:
             date="12.06", price="799元", price_index=1,
             if_commit_order=False,
             probe_only=False,
+            driver_backend="appium",
         )
 
         with patch("mobile.damai_app.Config.load_config", return_value=mock_config), \
@@ -177,6 +180,7 @@ class TestRetryWithDriverRecreation:
             date="12.06", price="799元", price_index=1,
             if_commit_order=True,
             probe_only=False,
+            driver_backend="appium",
         )
 
         with patch("mobile.damai_app.Config.load_config", return_value=mock_config), \

@@ -77,6 +77,7 @@ def bot():
         price_index=1,
         if_commit_order=True,
         probe_only=False,
+            driver_backend="appium",
     )
 
     with patch("mobile.damai_app.Config.load_config", return_value=mock_config), \
@@ -110,6 +111,7 @@ class TestInitialization:
             price_index=6,
             if_commit_order=False,
             probe_only=True,
+            driver_backend="appium",
         )
 
         with patch("mobile.damai_app.webdriver.Remote", return_value=mock_driver), \
@@ -152,6 +154,7 @@ class TestInitialization:
             price_index=1,
             if_commit_order=True,
             probe_only=False,
+            driver_backend="appium",
         )
 
         with patch("mobile.damai_app.Config.load_config", return_value=mock_config), \
@@ -188,6 +191,7 @@ class TestInitialization:
             price_index=0,
             if_commit_order=False,
             probe_only=True,
+            driver_backend="appium",
         )
         item_detail = _make_item_detail()
 
@@ -217,6 +221,7 @@ class TestInitialization:
             price_index=1,
             if_commit_order=True,
             probe_only=False,
+            driver_backend="appium",
         )
 
         with patch.object(DamaiBot, "_list_connected_device_ids", return_value=["c6c4eb67"]), \
@@ -243,6 +248,7 @@ class TestInitialization:
             price_index=1,
             if_commit_order=True,
             probe_only=False,
+            driver_backend="appium",
         )
 
         with patch.object(DamaiBot, "_list_connected_device_ids", return_value=["c6c4eb67"]), \
@@ -253,6 +259,96 @@ class TestInitialization:
                 DamaiBot(config=cfg)
 
         mock_remote.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# u2 backend adapters
+# ---------------------------------------------------------------------------
+
+class TestU2BackendAdapters:
+    def test_setup_driver_u2_calls_connect_and_app_start(self):
+        mock_u2_driver = Mock()
+        mock_u2_driver.settings = {}
+        mock_u2_driver.app_start = Mock()
+
+        cfg = Config(
+            server_url=None,
+            device_name="Android",
+            udid=None,
+            platform_version=None,
+            app_package="cn.damai",
+            app_activity=".launcher.splash.SplashMainActivity",
+            keyword="test",
+            users=["UserA"],
+            city="深圳",
+            date="12.06",
+            price="799元",
+            price_index=1,
+            if_commit_order=False,
+            probe_only=True,
+            driver_backend="u2",
+        )
+
+        with patch("uiautomator2.connect", return_value=mock_u2_driver) as connect:
+            bot = DamaiBot(config=cfg)
+
+        connect.assert_called_once_with(None)
+        mock_u2_driver.app_start.assert_called_once_with(
+            "cn.damai",
+            activity=".launcher.splash.SplashMainActivity",
+            stop=False,
+        )
+        assert bot.driver is mock_u2_driver
+        assert bot.d is mock_u2_driver
+
+    def test_click_coordinates_u2_uses_click(self):
+        cfg = Config(
+            server_url=None,
+            device_name="Android",
+            udid=None,
+            platform_version=None,
+            app_package="cn.damai",
+            app_activity=".launcher.splash.SplashMainActivity",
+            keyword="test",
+            users=["UserA"],
+            city="深圳",
+            date="12.06",
+            price="799元",
+            price_index=1,
+            if_commit_order=False,
+            probe_only=True,
+            driver_backend="u2",
+        )
+        bot = DamaiBot(config=cfg, setup_driver=False)
+        bot.d = Mock()
+        bot.driver = bot.d
+
+        bot._click_coordinates(10, 20, duration=30)
+        bot.d.click.assert_called_once_with(10, 20)
+
+    def test_has_element_u2_uses_selector_exists(self):
+        cfg = Config(
+            server_url=None,
+            device_name="Android",
+            udid=None,
+            platform_version=None,
+            app_package="cn.damai",
+            app_activity=".launcher.splash.SplashMainActivity",
+            keyword="test",
+            users=["UserA"],
+            city="深圳",
+            date="12.06",
+            price="799元",
+            price_index=1,
+            if_commit_order=False,
+            probe_only=True,
+            driver_backend="u2",
+        )
+        bot = DamaiBot(config=cfg, setup_driver=False)
+        selector = Mock()
+        selector.exists = Mock(return_value=True)
+        with patch.object(bot, "_find", return_value=selector):
+            assert bot._has_element(By.ID, "cn.damai:id/checkbox") is True
 
 
 # ---------------------------------------------------------------------------
@@ -2834,6 +2930,7 @@ class TestPrepareRuntimeConfig:
             price_index=0,
             if_commit_order=False,
             probe_only=True,
+            driver_backend="appium",
             item_url="https://m.damai.cn/damai/detail/item.html?itemId=1016133935724",
             item_id=None,
         )
