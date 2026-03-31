@@ -221,17 +221,25 @@ def _format_quantity_text(quantity: int) -> str:
     return f"{quantity}张"
 
 
-def _build_prompt_suggestion(intent, attendee_names=None, quantity=None) -> str:
+def _should_include_quantity(attendee_names, quantity: int, force_quantity: bool = False) -> bool:
+    if force_quantity:
+        return True
+    if attendee_names:
+        return quantity != len(attendee_names)
+    return quantity > 1
+
+
+def _build_prompt_suggestion(intent, attendee_names=None, quantity=None, force_quantity: bool = False) -> str:
     attendee_names = intent.attendee_names if attendee_names is None else attendee_names
     quantity = intent.quantity if quantity is None else quantity
     attendee_text = "、".join(attendee_names) if attendee_names else "<观演人姓名>"
     concert_name = f"{intent.artist}的演唱会门票" if intent.artist else "<演出名称>门票"
 
-    parts = [
-        f"帮{attendee_text}抢{_format_quantity_text(quantity)}",
-        _format_human_date(intent.date),
-        concert_name,
-    ]
+    opening = f"帮{attendee_text}抢"
+    if _should_include_quantity(attendee_names, quantity, force_quantity=force_quantity):
+        opening = f"{opening}{_format_quantity_text(quantity)}"
+
+    parts = [opening, _format_human_date(intent.date), concert_name]
     if intent.seat_hint:
         parts.append(intent.seat_hint)
     if intent.numeric_price_hint:
@@ -241,14 +249,9 @@ def _build_prompt_suggestion(intent, attendee_names=None, quantity=None) -> str:
     return "，".join(parts)
 
 
-def _build_prompt_template(intent, attendee_text="<观演人姓名列表>", quantity_text="<购票张数>") -> str:
+def _build_prompt_template(intent, attendee_text="<观演人姓名列表>") -> str:
     concert_name = f"{intent.artist}的演唱会门票" if intent.artist else "<演出名称>门票"
-
-    parts = [
-        f"帮{attendee_text}抢{quantity_text}",
-        _format_human_date(intent.date),
-        concert_name,
-    ]
+    parts = [f"帮{attendee_text}抢", _format_human_date(intent.date), concert_name]
     if intent.seat_hint:
         parts.append(intent.seat_hint)
     if intent.numeric_price_hint:
@@ -268,13 +271,13 @@ def _build_retry_command(prompt_text: str, mode: str) -> str:
 def _build_missing_keyword_error(base_config: dict, mode: str) -> str:
     configured_user_list = base_config.get("users") or []
     configured_users = "、".join(configured_user_list) or "未配置"
-    generic_prompt = "帮<观演人姓名列表>抢<购票张数>，<日期>，<演出名称>的演唱会门票，<票档偏好>"
+    generic_prompt = "帮<观演人姓名列表>抢，<日期>，<演出名称>的演唱会门票，<票档偏好>"
     generic_command = _build_retry_command(generic_prompt, mode)
 
     configured_example = ""
     if configured_user_list:
         configured_prompt = (
-            f"帮{'、'.join(configured_user_list)}抢{len(configured_user_list)}张，"
+            f"帮{'、'.join(configured_user_list)}抢，"
             "<日期>，<演出名称>的演唱会门票，<票档偏好>"
         )
         configured_command = _build_retry_command(configured_prompt, mode)
@@ -288,13 +291,13 @@ def _build_missing_keyword_error(base_config: dict, mode: str) -> str:
         "缺少关键信息：演出名称或搜索关键词。\n"
         f"当前配置文件里的观演人是：{configured_users}\n"
         "当前无法判断你想抢哪场演出，所以不会继续搜索、连接 Appium 或写配置。\n"
-        "请至少写清楚：观演人姓名、购票张数、日期、演出名称。\n"
+        "请至少写清楚：观演人姓名、日期、演出名称。\n"
         "请直接复制下面任意一种格式，补全后重试：\n"
         f"1. 通用模板：\n"
         f"{generic_command}\n"
         f"{configured_example}"
         "示例提示词：\n"
-        "帮张三、李四抢2张，4 月 6 号，张杰的演唱会门票，内场，票价 1680 元"
+        "给张三和李四抢4 月 6 号张杰的北京站演唱会内场门票，票价 1680 元"
     )
 
 
@@ -330,7 +333,7 @@ def _validate_prompt_requirements(intent, base_config: dict, mode: str):
             f"{generic_prompt}"
         )
 
-    if len(intent.attendee_names) != intent.quantity:
+    if intent.quantity_explicit and len(intent.attendee_names) != intent.quantity:
         attendee_count_prompt = _build_prompt_suggestion(
             intent,
             attendee_names=intent.attendee_names,

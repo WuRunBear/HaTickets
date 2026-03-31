@@ -62,6 +62,7 @@ _ATTENDEE_PATTERNS = (
 class PromptIntent:
     raw_prompt: str
     quantity: int = 1
+    quantity_explicit: bool = False
     attendee_names: list[str] = field(default_factory=list)
     date: Optional[str] = None
     city: Optional[str] = None
@@ -96,12 +97,26 @@ def _parse_chinese_int(token: str) -> Optional[int]:
 
 
 def _parse_quantity(prompt: str) -> int:
-    match = re.search(r"([0-9零一二两三四五六七八九十]+)\s*张", prompt)
+    prompt_without_dates = re.sub(r"\d{1,2}\s*月\s*\d{1,2}\s*[号日好]?", " ", prompt)
+    prompt_without_dates = re.sub(r"\d{1,2}[./-]\d{1,2}", " ", prompt_without_dates)
+    match = re.search(r"([0-9零一二两三四五六七八九十]+)\s*张", prompt_without_dates)
     if not match:
         return 1
 
     value = _parse_chinese_int(match.group(1))
     return value if value and value > 0 else 1
+
+
+def _parse_quantity_with_explicit(prompt: str) -> tuple[int, bool]:
+    prompt_without_dates = re.sub(r"\d{1,2}\s*月\s*\d{1,2}\s*[号日好]?", " ", prompt)
+    prompt_without_dates = re.sub(r"\d{1,2}[./-]\d{1,2}", " ", prompt_without_dates)
+    match = re.search(r"([0-9零一二两三四五六七八九十]+)\s*张", prompt_without_dates)
+    if not match:
+        return 1, False
+
+    value = _parse_chinese_int(match.group(1))
+    quantity = value if value and value > 0 else 1
+    return quantity, True
 
 
 def _parse_date(prompt: str) -> Optional[str]:
@@ -162,7 +177,12 @@ def _clean_prompt_for_keyword(prompt: str, removable_tokens: Optional[Iterable[s
     cleaned = re.sub(r"[0-9零一二两三四五六七八九十]+\s*张", " ", cleaned)
     for word in _REQUEST_STOPWORDS:
         cleaned = cleaned.replace(word, " ")
-    for token in removable_tokens or ():
+    ordered_tokens = sorted(
+        {token for token in (removable_tokens or ()) if token},
+        key=len,
+        reverse=True,
+    )
+    for token in ordered_tokens:
         if token:
             cleaned = cleaned.replace(token, " ")
     cleaned = re.sub(r"\b\d+\s*元?\b", " ", cleaned)
@@ -231,6 +251,9 @@ def parse_prompt(prompt: str) -> PromptIntent:
     parsed_date = _parse_date(normalized_prompt)
     parsed_city = _parse_city(normalized_prompt)
     attendee_names = _parse_attendee_names(normalized_prompt)
+    parsed_quantity, quantity_explicit = _parse_quantity_with_explicit(normalized_prompt)
+    if attendee_names and not quantity_explicit:
+        parsed_quantity = len(attendee_names)
     price_hint, seat_hint, numeric_price = _parse_price_hints(normalized_prompt)
     removable_tokens = []
     removable_tokens.extend(attendee_names)
@@ -250,7 +273,8 @@ def parse_prompt(prompt: str) -> PromptIntent:
 
     intent = PromptIntent(
         raw_prompt=normalized_prompt,
-        quantity=_parse_quantity(normalized_prompt),
+        quantity=parsed_quantity,
+        quantity_explicit=quantity_explicit,
         attendee_names=attendee_names,
         date=parsed_date,
         city=parsed_city,
@@ -267,7 +291,7 @@ def parse_prompt(prompt: str) -> PromptIntent:
 
     if not intent.attendee_names:
         intent.notes.append("提示词中未识别到观演人姓名，自动写配置前需要补充")
-    elif len(intent.attendee_names) != intent.quantity:
+    elif intent.quantity_explicit and len(intent.attendee_names) != intent.quantity:
         intent.notes.append(
             f"提示词中识别到 {len(intent.attendee_names)} 个观演人，但购票张数是 {intent.quantity}，"
             "建议改成一致后再执行 apply / probe"

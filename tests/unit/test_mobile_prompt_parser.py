@@ -83,12 +83,52 @@ class TestParsePrompt:
 
         assert intent.attendee_names == ["张志涛", "李四"]
         assert intent.quantity == 2
+        assert intent.quantity_explicit is True
+
+    def test_parse_prompt_infers_quantity_from_attendee_names_when_omitted(self):
+        intent = parse_prompt("帮张文、张志涛抢，6 月 6 号，陈慧娴的演唱会门票，上海站，内场，票价 1380 元")
+
+        assert intent.attendee_names == ["张文", "张志涛"]
+        assert intent.quantity == 2
+        assert intent.quantity_explicit is False
+        assert not any("购票张数" in note for note in intent.notes)
+
+    def test_parse_prompt_supports_artist_with_city_station_inside_phrase(self):
+        intent = parse_prompt("给张三和李四抢4 月 6 号张杰的北京站演唱会内场门票，票价 1680 元")
+
+        assert intent.attendee_names == ["张三", "李四"]
+        assert intent.quantity == 2
+        assert intent.city == "北京"
+        assert intent.artist == "张杰"
+        assert intent.search_keyword == "张杰 演唱会"
+        assert intent.price_hint == "内场1680元"
+
+    def test_parse_prompt_supports_city_station_before_artist(self):
+        intent = parse_prompt("帮张文、张志涛抢，6 月 6 号，上海站陈慧娴的演唱会门票，内场，票价 1380 元")
+
+        assert intent.attendee_names == ["张文", "张志涛"]
+        assert intent.quantity == 2
+        assert intent.city == "上海"
+        assert intent.artist == "陈慧娴"
+        assert intent.search_keyword == "陈慧娴 演唱会"
+
+    def test_parse_prompt_supports_dot_date_without_misreading_zhang_surname_as_quantity(self):
+        intent = parse_prompt("给张三和李四抢4.6 张杰的北京站演唱会内场门票，票价 1680 元")
+
+        assert intent.attendee_names == ["张三", "李四"]
+        assert intent.quantity == 2
+        assert intent.quantity_explicit is False
+        assert intent.date == "04.06"
+        assert intent.city == "北京"
+        assert intent.artist == "张杰"
+        assert intent.search_keyword == "张杰 演唱会"
 
     def test_parse_prompt_adds_note_when_attendee_count_mismatches_quantity(self):
         intent = parse_prompt("帮张文和张志涛抢一张 4 月 4 号余佳运的演唱会门票，内场，票价 1080 元")
 
         assert intent.attendee_names == ["张文", "张志涛"]
         assert intent.quantity == 1
+        assert intent.quantity_explicit is True
         assert any("观演人" in note and "购票张数" in note for note in intent.notes)
 
 

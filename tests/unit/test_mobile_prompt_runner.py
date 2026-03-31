@@ -732,7 +732,7 @@ class TestMain:
         assert "提示词有问题，已停止执行" in mock_logger.error.call_args[0][0]
         assert "缺少关键信息：观演人姓名" in mock_logger.error.call_args[0][0]
         assert "./mobile/scripts/run_from_prompt.sh --mode apply --yes" in mock_logger.error.call_args[0][0]
-        assert "<购票张数>" in mock_logger.error.call_args[0][0]
+        assert "帮<观演人姓名列表>抢，4 月 6 号，张杰的演唱会门票" in mock_logger.error.call_args[0][0]
         assert "如果你就是给当前配置里的 2 位观演人买票" in mock_logger.error.call_args[0][0]
 
     def test_summary_mode_requires_attendee_name(self):
@@ -749,7 +749,7 @@ class TestMain:
         mock_logger.error.assert_called_once()
         assert "不会继续搜索、连接 Appium 或写配置" in mock_logger.error.call_args[0][0]
         assert "./mobile/scripts/run_from_prompt.sh --mode summary --yes" in mock_logger.error.call_args[0][0]
-        assert "<购票张数>" in mock_logger.error.call_args[0][0]
+        assert "帮<观演人姓名列表>抢，4 月 6 号，张杰的演唱会门票" in mock_logger.error.call_args[0][0]
 
     def test_summary_mode_requires_search_keyword(self):
         from mobile.prompt_runner import main
@@ -762,8 +762,8 @@ class TestMain:
         assert result == 1
         mock_logger.error.assert_called_once()
         assert "缺少关键信息：演出名称或搜索关键词" in mock_logger.error.call_args[0][0]
-        assert "<购票张数>" in mock_logger.error.call_args[0][0]
-        assert "张三、李四抢2张" in mock_logger.error.call_args[0][0]
+        assert "帮<观演人姓名列表>抢，<日期>" in mock_logger.error.call_args[0][0]
+        assert "给张三和李四抢4 月 6 号张杰的北京站演唱会内场门票，票价 1680 元" in mock_logger.error.call_args[0][0]
 
     def test_summary_mode_stops_when_attendee_count_mismatches_quantity(self):
         from mobile.prompt_runner import main
@@ -781,6 +781,21 @@ class TestMain:
         assert "请直接复制下面任意一条正确命令重新执行" in mock_logger.error.call_args[0][0]
         assert "给这 2 位观演人都买票" in mock_logger.error.call_args[0][0]
         assert "./mobile/scripts/run_from_prompt.sh --mode summary --yes" in mock_logger.error.call_args[0][0]
+
+    def test_summary_mode_accepts_multiple_attendees_without_explicit_quantity(self):
+        from mobile.prompt_runner import main
+        mock_bot = self._make_full_mock_bot()
+        with patch("mobile.prompt_runner._config_path", return_value=Mock(__str__=lambda s: "/mock/config.jsonc")), \
+             patch("mobile.prompt_runner.load_config_dict", return_value={}), \
+             patch("mobile.prompt_runner.Config.load_config", return_value=self._base_config_mock()), \
+             patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot), \
+             patch("builtins.print") as mock_print:
+            result = main(["帮张文、张志涛抢，6月6号，陈慧娴的演唱会门票，上海站，内场，票价 1380 元", "--mode", "summary", "-y"])
+
+        assert result == 0
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in mock_print.call_args_list)
+        assert "规范提示词:" in printed
+        assert "帮张文、张志涛抢，6 月 6 号，陈慧娴的演唱会门票，内场，票价 1380 元" in printed
 
     def test_summary_mode_logs_driver_start_failure_cleanly(self):
         from mobile.prompt_runner import main
