@@ -337,3 +337,163 @@ class TestU2SearchHotPath:
 
         assert result["opened"] is False
         assert len(result["search_results"]) == 1
+
+    def test_open_target_dismisses_popup_after_back_from_detail(self):
+        """P3 fix: returning from mismatched detail page should dismiss popups."""
+        bot = DamaiBot(config=_u2_config(), setup_driver=False)
+        card = Mock()
+        with patch.object(bot, "_find_all", return_value=[card]), \
+             patch.object(
+                 bot,
+                 "_safe_element_text",
+                 side_effect=["陈慧娴演唱会", "梅奔", "上海", "06.06"],
+             ), \
+             patch.object(bot, "_score_search_result", return_value=90), \
+             patch.object(bot, "_click_element_center"), \
+             patch.object(bot, "wait_for_page_state", return_value={"state": "detail_page"}), \
+             patch.object(bot, "_current_page_matches_target", return_value=False), \
+             patch.object(bot, "_press_keycode_safe", return_value=True), \
+             patch.object(bot, "dismiss_startup_popups") as dismiss, \
+             patch("mobile.damai_app.time.sleep"):
+            result = bot._open_target_from_search_results(max_scrolls=0, return_details=True)
+
+        assert result["opened"] is False
+        dismiss.assert_called_once()
+
+
+class TestDiscoverKeywordRetryPopup:
+    """P3 fix: keyword retry dismisses popups and verifies page state."""
+
+    def test_second_keyword_dismisses_popup_before_search(self):
+        bot = DamaiBot(config=_u2_config(), setup_driver=False)
+        bot.config.keyword = "陈慧娴 演唱会"
+        call_order = []
+
+        with patch.object(bot, "_recover_to_navigation_start", return_value={"state": "search_page"}), \
+             patch.object(bot, "dismiss_startup_popups", side_effect=lambda: call_order.append("dismiss")), \
+             patch.object(bot, "probe_current_page", return_value={"state": "search_page"}), \
+             patch.object(bot, "_submit_search_keyword", side_effect=[True, True]) as submit, \
+             patch.object(
+                 bot,
+                 "_open_target_from_search_results",
+                 side_effect=[
+                     {"opened": False, "search_results": [{"score": 50, "title": "其他"}]},
+                     {"opened": True, "search_results": [{"score": 90, "title": "陈慧娴"}]},
+                 ],
+             ), \
+             patch.object(bot, "probe_current_page", return_value={"state": "detail_page"}):
+            result = bot.discover_target_event(
+                ["陈慧娴 演唱会", "陈慧娴"],
+                initial_probe={"state": "search_page"},
+            )
+
+        assert result is not None
+        assert submit.call_count == 2
+        assert "dismiss" in call_order
+
+    def test_retry_recovers_page_state_when_not_on_search(self):
+        bot = DamaiBot(config=_u2_config(), setup_driver=False)
+        bot.config.keyword = "陈慧娴 演唱会"
+
+        with patch.object(bot, "_recover_to_navigation_start") as recover, \
+             patch.object(bot, "dismiss_startup_popups"), \
+             patch.object(bot, "probe_current_page", return_value={"state": "detail_page"}), \
+             patch.object(bot, "_submit_search_keyword", side_effect=[True, True]), \
+             patch.object(
+                 bot,
+                 "_open_target_from_search_results",
+                 side_effect=[
+                     {"opened": False, "search_results": []},
+                     {"opened": True, "search_results": [{"score": 90, "title": "陈慧娴"}]},
+                 ],
+             ):
+            recover.side_effect = [
+                {"state": "search_page"},  # initial recovery
+                {"state": "search_page"},  # retry recovery
+            ]
+            result = bot.discover_target_event(
+                ["陈慧娴 演唱会", "陈慧娴"],
+                initial_probe={"state": "search_page"},
+            )
+
+        assert result is not None
+        # recover called twice: once at start, once before retry
+        assert recover.call_count == 2
+
+    def test_retry_breaks_when_page_unrecoverable(self):
+        bot = DamaiBot(config=_u2_config(), setup_driver=False)
+        bot.config.keyword = "陈慧娴 演唱会"
+
+        with patch.object(bot, "_recover_to_navigation_start") as recover, \
+             patch.object(bot, "dismiss_startup_popups"), \
+             patch.object(bot, "probe_current_page", return_value={"state": "unknown"}), \
+             patch.object(bot, "_submit_search_keyword", return_value=True) as submit, \
+             patch.object(
+                 bot,
+                 "_open_target_from_search_results",
+                 return_value={"opened": False, "search_results": []},
+             ):
+            recover.side_effect = [
+                {"state": "search_page"},  # initial
+                {"state": "unknown"},  # retry: unrecoverable
+            ]
+            result = bot.discover_target_event(
+                ["陈慧娴 演唱会", "陈慧娴"],
+                initial_probe={"state": "search_page"},
+            )
+
+        assert result is None
+        # second keyword should not even attempt submit
+        assert submit.call_count == 1
+
+
+class TestQualifyResourceId:
+    """P1 fix: bare IDs must be qualified to full resourceId for u2 backend."""
+
+    def test_bare_id_gets_qualified(self):
+        bot = DamaiBot(config=_u2_config(), setup_driver=False)
+        assert bot._qualify_resource_id("img_jia") == "cn.damai:id/img_jia"
+
+    def test_already_qualified_id_unchanged(self):
+        bot = DamaiBot(config=_u2_config(), setup_driver=False)
+        assert bot._qualify_resource_id("cn.damai:id/img_jia") == "cn.damai:id/img_jia"
+
+    def test_custom_package_prefix(self):
+        cfg = _u2_config()
+        cfg.app_package = "com.example"
+        bot = DamaiBot(config=cfg, setup_driver=False)
+        assert bot._qualify_resource_id("layout_num") == "com.example:id/layout_num"
+
+    def test_find_uses_qualified_id_for_u2(self):
+        bot = DamaiBot(config=_u2_config(), setup_driver=False)
+        bot.d = Mock()
+        bot.driver = bot.d
+        bot._find(By.ID, "img_jia")
+        bot.d.assert_called_once_with(resourceId="cn.damai:id/img_jia")
+
+    def test_find_all_qualifies_bare_id_in_xpath(self):
+        bot = DamaiBot(config=_u2_config(), setup_driver=False)
+        bot.d = Mock()
+        bot.driver = bot.d
+        bot.d.xpath.return_value.all.return_value = [Mock()]
+        bot._find_all(By.ID, "layout_num")
+        xpath_arg = bot.d.xpath.call_args[0][0]
+        assert "cn.damai:id/layout_num" in xpath_arg
+
+    def test_find_all_already_qualified_id_unchanged(self):
+        bot = DamaiBot(config=_u2_config(), setup_driver=False)
+        bot.d = Mock()
+        bot.driver = bot.d
+        bot.d.xpath.return_value.all.return_value = [Mock()]
+        bot._find_all(By.ID, "cn.damai:id/layout_num")
+        xpath_arg = bot.d.xpath.call_args[0][0]
+        assert "cn.damai:id/layout_num" in xpath_arg
+        # Should NOT double-qualify
+        assert "cn.damai:id/cn.damai:id/" not in xpath_arg
+
+    def test_class_name_not_qualified(self):
+        bot = DamaiBot(config=_u2_config(), setup_driver=False)
+        bot.d = Mock()
+        bot.driver = bot.d
+        bot._find(By.CLASS_NAME, "android.widget.Button")
+        bot.d.assert_called_once_with(className="android.widget.Button")

@@ -194,17 +194,10 @@ def _fast_recover_to_detail(bot: DamaiBot, max_backs: int = 4) -> dict:
     if fast is not None:
         return fast
 
-    # Batch 2 backs (covers order_confirm → sku → detail).
-    _shell_back(bot, count=2)
-    time.sleep(0.15)
-
-    fast = _fast_check_detail_page(bot)
-    if fast is not None:
-        return fast
-
-    # Incremental fallback for unexpected states.
-    remaining = max_backs - 2
-    for _ in range(remaining):
+    # Incremental back: press one back at a time and re-check to avoid
+    # overshooting when the app is already partway through the stack
+    # (e.g. on sku_page after a failed run).
+    for _ in range(max_backs):
         _shell_back(bot, count=1)
         time.sleep(0.15)
         fast = _fast_check_detail_page(bot)

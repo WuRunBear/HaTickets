@@ -383,6 +383,8 @@ class DamaiBot:
         if by in (By.ID, By.CLASS_NAME):
             key = "resourceId" if by == By.ID else "className"
             attr = "resource-id" if by == By.ID else "class"
+            if by == By.ID:
+                value = self._qualify_resource_id(value)
             try:
                 xpath_query = f"//*[@{attr}={self._xpath_literal(value)}]"
                 matches = self.d.xpath(xpath_query).all()
@@ -416,9 +418,16 @@ class DamaiBot:
         except TypeError:
             return [selector] if self._selector_exists(selector) else []
 
+    def _qualify_resource_id(self, value: str) -> str:
+        """补全裸 ID 为完整 resourceId（如 'img_jia' → 'cn.damai:id/img_jia'）。"""
+        if ":id/" in value:
+            return value
+        pkg = getattr(self.config, "app_package", "cn.damai")
+        return f"{pkg}:id/{value}"
+
     def _appium_selector_to_u2(self, by, value):
         if by == By.ID:
-            return self.d(resourceId=value)
+            return self.d(resourceId=self._qualify_resource_id(value))
         if by == By.CLASS_NAME:
             return self.d(className=value)
         if by == By.XPATH:
@@ -2024,6 +2033,7 @@ class DamaiBot:
                     if not self._press_keycode_safe(4, context="返回搜索列表"):
                         break
                     time.sleep(0.25)
+                    self.dismiss_startup_popups()
                 else:
                     logger.info(f"本屏搜索结果未找到明确匹配项，已扫描: {len(seen_titles)} 条")
 
@@ -2149,6 +2159,16 @@ class DamaiBot:
             normalized_keyword = normalize_text(keyword)
             if not normalized_keyword or normalized_keyword in tried:
                 continue
+
+            # 关键词重试前：关闭弹窗并确认在可搜索页面
+            if tried:
+                self.dismiss_startup_popups()
+                probe = self.probe_current_page()
+                if probe["state"] not in {"search_page", "homepage"}:
+                    probe = self._recover_to_navigation_start(probe)
+                    if probe["state"] not in {"search_page", "homepage"}:
+                        logger.warning(f"重试关键词前页面状态异常: {probe['state']}，跳过")
+                        break
 
             self.config.keyword = keyword
             logger.info(f"尝试搜索关键词: {keyword}")

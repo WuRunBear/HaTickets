@@ -253,20 +253,20 @@ def test_fast_recover_finds_detail_on_first_check():
     bot.d.shell.assert_not_called()
 
 
-def test_fast_recover_batch_back_finds_detail():
-    # First check: not detail. Batch 2 backs. Second check: detail.
+def test_fast_recover_one_back_finds_detail():
+    # First check: not detail. One back. Second check: detail.
     bot = _make_bot_for_recovery(find_all_side_effect=[[], ["element"]])
     result = _fast_recover_to_detail(bot)
     assert result["state"] == "detail_page"
-    bot.d.shell.assert_called_once_with("input keyevent 4; sleep 0.2; input keyevent 4")
+    bot.d.shell.assert_called_once_with("input keyevent 4")
 
 
-def test_fast_recover_incremental_fallback():
-    # Batch 2 backs not enough, one more individual back finds detail.
+def test_fast_recover_two_backs_finds_detail():
+    # Two individual backs needed before landing on detail.
     bot = _make_bot_for_recovery(find_all_side_effect=[[], [], ["element"]])
     result = _fast_recover_to_detail(bot)
     assert result["state"] == "detail_page"
-    assert bot.d.shell.call_count == 2  # batch + 1 individual
+    assert bot.d.shell.call_count == 2
 
 
 def test_fast_recover_falls_back_to_full_probe():
@@ -307,6 +307,60 @@ def test_require_detail_start_raises_for_unrecoverable_page():
     bot._recover_to_detail_page_for_local_retry.return_value = {"state": "loading"}
     with pytest.raises(RuntimeError, match="当前状态: loading"):
         _require_detail_start(bot, "开始")
+
+
+class TestFastRecoverNoOvershoot:
+    """P2 fix: incremental back avoids overshooting past detail_page."""
+
+    def test_already_on_sku_one_back_suffices(self):
+        # sku_page → 1 back → detail_page (no overshoot)
+        bot = _make_bot_for_recovery(find_all_side_effect=[[], ["element"]])
+        result = _fast_recover_to_detail(bot)
+        assert result["state"] == "detail_page"
+        assert bot.d.shell.call_count == 1
+        bot.d.shell.assert_called_with("input keyevent 4")
+
+    def test_order_confirm_two_backs_suffice(self):
+        # order_confirm → back → sku → back → detail
+        bot = _make_bot_for_recovery(find_all_side_effect=[[], [], ["element"]])
+        result = _fast_recover_to_detail(bot)
+        assert result["state"] == "detail_page"
+        assert bot.d.shell.call_count == 2
+
+    def test_no_overshoot_stops_immediately_on_detail(self):
+        # Each back is followed by a check; should stop as soon as detail found
+        call_count = {"backs": 0}
+        original_shell = Mock()
+
+        def track_shell(cmd):
+            call_count["backs"] += 1
+            return original_shell(cmd)
+
+        bot = _make_bot_for_recovery(
+            find_all_side_effect=[[], [], [], ["element"]]
+        )
+        bot.d.shell.side_effect = track_shell
+        result = _fast_recover_to_detail(bot)
+        assert result["state"] == "detail_page"
+        assert call_count["backs"] == 3
+
+    def test_max_backs_respected(self):
+        # All backs exhausted without finding detail → full probe fallback
+        bot = _make_bot_for_recovery(find_all_side_effect=[[] for _ in range(10)])
+        bot.probe_current_page.return_value = {"state": "homepage"}
+        result = _fast_recover_to_detail(bot, max_backs=3)
+        assert result["state"] == "homepage"
+        assert bot.d.shell.call_count == 3
+        bot.probe_current_page.assert_called_once()
+
+    def test_appium_fallback_incremental(self):
+        bot = _make_bot_for_recovery(
+            find_all_side_effect=[[], ["element"]],
+            using_u2=False,
+        )
+        result = _fast_recover_to_detail(bot)
+        assert result["state"] == "detail_page"
+        bot._press_keycode_safe.assert_called_once_with(4, context="benchmark回退")
 
 
 # ---------------------------------------------------------------------------
