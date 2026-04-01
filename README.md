@@ -18,7 +18,7 @@
 
 | 方案 | 目录 | 当前状态 | 说明 |
 |------|------|--------|------|
-| `Mobile` | `mobile/` | 主推 | UIAutomator2 直连 Android 大麦 App，无需 Appium Server（可选回退） |
+| `Mobile` | `mobile/` | 主推 | UIAutomator2 直连 Android 大麦 App，无需额外服务 |
 | `Web` | `web/` | 可用但次选 | Selenium 控制 Chrome |
 | ~~`Desktop`~~ | ~~`desktop/`~~ | ~~不可用~~ | ~~官方渠道和风控已限制，当前不要再作为可执行方案使用~~ |
 
@@ -51,9 +51,6 @@
 2. 自动配置并直接做一次安全探测
 3. 探测通过后，再进入正式抢票
 
-> **u2 模式（默认）不需要启动 Appium Server**，只要 `adb devices` 能识别设备即可。
-> 如果你使用 `driver_backend: "appium"` 回退模式，才需要额外启动 Appium。
-
 这 2 个用户阶段一定要区分清楚：
 
 1. `./mobile/scripts/start_ticket_grabbing.sh --probe --yes`
@@ -68,12 +65,6 @@ poetry install
 ```
 
 如果你还没有 Android SDK，建议直接安装 Android Studio（需要 `adb` 命令可用）。
-
-> **仅 Appium 回退模式需要**：如果你设置了 `driver_backend: "appium"`，还需额外安装：
-> ```bash
-> npm install -g appium
-> appium driver install uiautomator2
-> ```
 
 ### 2. 连接手机
 
@@ -92,12 +83,6 @@ adb devices
 输出里类似 `ABC1234567	device` 的这一串，就是你的 `udid`。
 
 ### 3. 准备本地配置
-
-> **如果你使用 Appium 回退模式** (`driver_backend: "appium"`)，需要先在另一个终端启动 Appium：
-> ```bash
-> ./mobile/scripts/start_appium.sh
-> ```
-> u2 模式（默认）跳过此步骤。
 
 开始前先确认这两件事：
 
@@ -173,8 +158,6 @@ cp mobile/config.example.jsonc mobile/config.jsonc
 
 ```jsonc
 {
-  "driver_backend": "u2",                    // 默认 u2 直连，无需 Appium；改 "appium" 回退
-  // "server_url": "http://127.0.0.1:4723", // 仅 driver_backend="appium" 时需要
   "udid": "你的 adb devices 序列号",
   "app_package": "cn.damai",
   "app_activity": ".launcher.splash.SplashMainActivity",

@@ -1,8 +1,4 @@
 {
-  "serial": null,
-  "driver_backend": "u2",
-  // "server_url": "http://127.0.0.1:4723", // 仅在 driver_backend="appium" 时需要
-  "device_name": "Android",
   "udid": "你的 adb devices 序列号",
   "app_package": "cn.damai",
   "app_activity": ".launcher.splash.SplashMainActivity",

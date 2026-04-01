@@ -5,8 +5,8 @@
 ## 技术栈
 
 - Python 3.8+
-- **UIAutomator2 (u2) 直连**（默认，推荐） — 无需 Appium Server，每次操作 ~30-60ms
-- **Appium** （可选回退，`driver_backend: "appium"`） — 需要 Appium Server + Node.js，每次操作 ~100-200ms
+- UIAutomator2 (u2) 直连 Android 设备，每次操作 ~30-60ms
+- 无需额外服务进程，`adb devices` 能识别设备即可
 - 仅支持 Android
 
 ## 模块结构
@@ -21,8 +21,6 @@
 
 ## 配置项 (`config.jsonc` / `config.local.jsonc`)
 
-- `driver_backend`: 驱动后端，`"u2"`（默认）或 `"appium"`
-- `server_url`: Appium 服务器地址（仅 `driver_backend="appium"` 时需要）
 - `udid`: 设备序列号；真机建议填写 `adb devices` 的序列号
 - `app_package`: 大麦 App 包名
 - `app_activity`: 大麦启动 Activity
@@ -50,7 +48,7 @@
 DamaiBot.__init__()
   ├── Config.load_config()    # 默认读取 config.jsonc；开发者可显式覆盖
   ├── _prepare_runtime_config()  # 解析 item_url/item_id，必要时自动补 keyword
-  └── _setup_driver()         # 初始化 Appium 连接
+  └── _setup_driver()         # 初始化 u2 设备连接
 
 run_with_retry(max_retries=3)
   └── run_ticket_grabbing()   # 单次抢票流程
@@ -75,32 +73,21 @@ run_with_retry(max_retries=3)
 
 ### 1. 驱动初始化 (`_setup_driver`)
 
-`_setup_driver()` 根据 `driver_backend` 路由到对应的初始化方法：
+通过 UIAutomator2 直连设备：
 
-**u2 模式（默认）— `_setup_u2_driver()`**:
 ```python
 import uiautomator2 as u2
-d = u2.connect(config.udid)    # 直连设备，无需 Appium Server
+d = u2.connect(config.udid)    # 直连设备，无需额外服务进程
 d.settings["wait_timeout"] = 2.0
 d.settings["operation_delay"] = (0, 0)
 d.app_start("cn.damai", stop=False)   # 不重启 App，保持登录态
-self.driver = self.d           # 统一接口
-```
-
-**Appium 回退模式 — `_setup_appium_driver()`**:
-```python
-platformName: "Android"
-deviceName: config.device_name
-udid: config.udid
-automationName: "UiAutomator2"
-noReset: True
-disableWindowAnimation: True
+self.driver = self.d
 ```
 
 说明：
-- u2 直连省去 Appium Server 中转层，每次操作快 3-5 倍
-- 所有上层方法（`_find`、`_click_coordinates` 等）通过适配层兼容两种后端
-- `_using_u2()` 方法检测当前后端，分发到对应实现
+- 直连设备，省去中转层，每次操作 ~30-60ms
+- `_find`、`_click_coordinates` 等方法统一封装元素查找和手势操作
+- 热路径使用坐标缓存（`_cached_hot_path_coords`），重试时单次 HTTP 调用即可完成点击
 
 **激进性能优化**:
 ```python
@@ -321,20 +308,19 @@ flowchart TD
 运行前需要：
 1. 用户已手动打开大麦 APP 并登录
 2. 如果使用 `item_url + auto_navigate`，可以停留在首页；否则仍需手动进入目标演出详情页
-3. **u2 模式**（默认）：`adb devices` 能识别设备即可，无需额外服务
-4. **Appium 模式**（回退）：需先启动 Appium 服务器（`./mobile/scripts/start_appium.sh`）
+3. `adb devices` 能识别设备即可，无需额外服务进程
 
 ## MVP 验证结论
 
 `2026-03-29` 的真实模拟器测试结论：
-- Appium + Android 模拟器 + 大麦 App 可以正常启动和探测页面
+- Android 模拟器 + 大麦 App 可以正常启动和探测页面
 - 大麦首启弹窗可以通过启动探测层稳定处理
 - 目标商品的 deeplink 会短暂进入 `ProjectDetailActivity`，随后回到首页，不适合作为默认导航方案
 - 当前默认方案改为：优先用 `item_url + auto_navigate` 从首页搜索进入目标演出；手动打开详情页仅作为回退方案
 
 ## 平台限制
 
-- **仅 Android**: u2 和 Appium 均仅支持 Android
+- **仅 Android**: UIAutomator2 仅支持 Android
 - **不支持 iOS**: 需要 XCUITest 引擎 + 完全不同的元素定位方式
 - **不支持选座**: 流程中没有选座步骤
 
@@ -342,7 +328,7 @@ flowchart TD
 
 1. 用 `adb devices` 确认真机已经连上
 2. 把设备序列号填进 `config.jsonc` 的 `udid`
-3. 默认 `driver_backend: "u2"` 无需额外配置；如需 Appium 回退，改为 `"appium"` 并填写 `server_url`
+3. `adb devices` 确认设备已连接即可，无需额外配置
 4. 如果大麦版本或 ROM 定制导致启动页不同，再覆盖 `app_activity`
 
 ## 性能设计理念

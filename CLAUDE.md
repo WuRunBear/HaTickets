@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 Damai.com (大麦网) ticket purchasing automation system with three platform modules:
-- **Mobile** (`mobile/`): **Primary/recommended** — UIAutomator2 (u2) 直连 Android 设备（默认），Appium 作为可选回退后端（Python）
+- **Mobile** (`mobile/`): **Primary/recommended** — UIAutomator2 (u2) 直连 Android 设备自动化（Python）
 - **Web** (`web/`): Selenium + ChromeDriver browser automation (Python) — secondary option
 - **Desktop** (`desktop/`): Tauri v1 desktop app — **deprecated, blocked by official channel restrictions, do not invest time here**
 
@@ -17,8 +17,7 @@ Performance is critical — this is competitive ticket-grabbing where millisecon
 
 - **Python**: ^3.8 + Poetry
 - **Web**: Chrome browser (ChromeDriver auto-installed by `web/check_environment.py`)
-- **Mobile (u2, default)**: Android device/emulator + adb（无需额外服务进程）
-- **Mobile (appium fallback)**: 上述 + Appium 3.1+ + Node.js 20.19+（仅 `driver_backend="appium"` 时需要）
+- **Mobile**: Android device/emulator + adb（无需额外服务进程）
 - **Desktop**: Node.js 20+ + Rust toolchain + Yarn (deprecated — see above)
 
 ## Commands
@@ -32,7 +31,6 @@ poetry run pytest -k "test_name"             # single test
 poetry run pytest -m unit                    # by marker (unit | integration | slow)
 
 # Mobile scripts
-mobile/scripts/start_appium.sh               # (optional) start Appium server, only needed if driver_backend="appium"
 mobile/scripts/start_ticket_grabbing.sh --probe --yes   # safe probe run
 mobile/scripts/start_ticket_grabbing.sh --yes           # live ticket grabbing
 mobile/scripts/run_from_prompt.sh --mode summary --yes "prompt text"  # NLP config: preview
@@ -52,8 +50,8 @@ cargo test --manifest-path desktop/src-tauri/Cargo.toml
 
 ### Mobile (`mobile/`) — Primary Module
 
-- `damai_app.py` — `DamaiBot`: supports two driver backends (`u2` default and `appium` fallback). u2 直连设备每次操作 ~30-60ms（Appium 需 ~100-200ms）。Uses coordinate-based gesture clicks, hot-path coordinate caching, aggressive timeout tuning
-- `config.py` — Mobile config via `Config.load_config()` reading `config.jsonc`. `driver_backend` field defaults to `"u2"`; set to `"appium"` to use legacy Appium backend
+- `damai_app.py` — `DamaiBot`: UIAutomator2 直连设备，每次操作 ~30-60ms。Uses coordinate-based gesture clicks, hot-path coordinate caching, aggressive timeout tuning
+- `config.py` — Mobile config via `Config.load_config()` reading `config.jsonc`
 - `item_resolver.py` — Fetches event metadata (name, venue, dates, prices) from item URLs via Damai mobile API
 - `prompt_parser.py` — Parses natural-language prompts into structured intent (quantity, date, city, price) with scoring
 - `prompt_runner.py` — CLI entrypoint for natural-language ticket discovery and bot invocation
@@ -85,7 +83,7 @@ cargo test --manifest-path desktop/src-tauri/Cargo.toml
 - Desktop: SQLite database (managed via Tauri plugin)
 
 ### Tests (`tests/`)
-- `conftest.py` — Shared fixtures and **module-level mocks for appium and uiautomator2** (injected into `sys.modules` so tests run without real device dependencies)
+- `conftest.py` — Shared fixtures and **module-level mocks for uiautomator2** (injected into `sys.modules` so tests run without real device dependencies)
 - Custom markers auto-applied by file path: files under `unit/` get `@pytest.mark.unit`, under `integration/` get `@pytest.mark.integration`
 - Coverage: 80% threshold enforced, covers `web/` and `mobile/` only
 
@@ -98,7 +96,7 @@ cargo test --manifest-path desktop/src-tauri/Cargo.toml
 
 ## Key Design Decisions
 - Mobile is the primary approach; Desktop is deprecated due to official channel restrictions
-- Mobile defaults to UIAutomator2 (u2) direct connection — no Appium server needed, ~3x faster per operation; Appium available as fallback via `driver_backend: "appium"`
+- Mobile uses UIAutomator2 (u2) direct connection — no server process needed, ~30-60ms per operation
 - Mobile uses coordinate-based gesture clicks over element.click() for speed
 - ChromeDriver auto-detection and auto-installation to prevent version mismatch (Web)
 - Cookie persistence for Web login to avoid repeated manual auth

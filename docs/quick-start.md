@@ -8,8 +8,6 @@
 2. 自动配置并直接做一次安全探测
 3. 探测通过后，再进入正式抢票
 
-> **u2 模式（默认）不需要启动 Appium Server**，只要 `adb devices` 能识别设备即可。
-
 这 2 个用户阶段不要混淆：
 
 1. `./mobile/scripts/start_ticket_grabbing.sh --probe --yes`
@@ -29,12 +27,6 @@ poetry install
 ```
 
 如果你还没有 Android SDK，建议直接安装 Android Studio（需要 `adb` 命令可用）。
-
-> **仅 Appium 回退模式需要**（`driver_backend: "appium"`）：
-> ```bash
-> npm install -g appium
-> appium driver install uiautomator2
-> ```
 
 ## 2. 连接手机
 
@@ -66,12 +58,6 @@ adb shell getprop ro.build.version.release
 
 ## 3. 准备本地配置
 
-> **如果你使用 Appium 回退模式** (`driver_backend: "appium"`)，需要先在另一个终端启动 Appium：
-> ```bash
-> ./mobile/scripts/start_appium.sh
-> ```
-> u2 模式（默认）跳过此步骤。
-
 开始前先确认：
 
 - 真机里已经安装并登录大麦 App
@@ -89,8 +75,6 @@ cp mobile/config.example.jsonc mobile/config.jsonc
 
 ```jsonc
 {
-  "driver_backend": "u2",                    // 默认 u2 直连；改 "appium" 回退
-  // "server_url": "http://127.0.0.1:4723", // 仅 driver_backend="appium" 时需要
   "udid": "你的 adb devices 序列号",
   "app_package": "cn.damai",
   "app_activity": ".launcher.splash.SplashMainActivity",
@@ -210,7 +194,7 @@ cp mobile/config.example.jsonc mobile/config.jsonc
 - 如果没写观演人，脚本会立即停止
 - 如果已经写了多个观演人但没额外写“2张”，脚本会自动按观演人数推断购票数量
 - 只有当你手动写了张数、且和观演人数不一致时，脚本才会停止
-- 这种情况下不会继续搜索、连接 Appium，也不会写配置
+- 这种情况下不会继续搜索、连接设备，也不会写配置
 - 脚本会直接打印一条或两条“可复制的正确命令”，你按输出重试即可
 - 如果当前只连接了一台安卓设备，脚本会自动识别 `udid / platform_version`
 - 在 `apply / probe` 模式下，设备字段也会一起写回 `mobile/config.jsonc`
@@ -246,13 +230,9 @@ cp mobile/config.example.jsonc mobile/config.jsonc
 2. 数据线是否支持传输
 3. 手机上是否点了“允许调试”
 
-### Appium 服务器未启动（仅 Appium 模式）
+### 设备连接失败
 
-如果你使用的是默认 u2 模式，不需要 Appium Server。如果你设置了 `driver_backend: "appium"`，先执行：
-
-```bash
-./mobile/scripts/start_appium.sh
-```
+确认 `adb devices` 能正常识别设备，且手机已开启 USB 调试。
 
 ### 脚本找不到观演人
 

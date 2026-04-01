@@ -1,36 +1,23 @@
 # 安卓端 V2 版本介绍
 
-> **注意**：当前默认驱动已切换为 UIAutomator2 (u2) 直连模式，无需 Appium Server。
-> 下文中关于 Appium 的内容为历史实现参考。当前实际使用请优先参考 [README.md](../README.md) 和 [quick-start.md](./quick-start.md)。
+> 当前实际使用请优先参考 [README.md](../README.md) 和 [quick-start.md](./quick-start.md)。
 
 ## 执行命令
 
-### 驱动模式
+无需启动额外服务，`adb devices` 能识别设备即可直接执行：
 
-**u2 直连（默认，推荐）**：
 ```bash
-# 无需启动任何服务，直接执行
+# 安全探测
 ./mobile/scripts/start_ticket_grabbing.sh --probe --yes
+
+# 正式抢票
+./mobile/scripts/start_ticket_grabbing.sh --yes
 ```
 
-**Appium 回退模式**（`config.jsonc` 中 `driver_backend: "appium"`）：
-```bash
-appium --address 0.0.0.0 --port 4723 --relaxed-security
-```
-
-Appium 模式下可以用 `mobile: clickGesture` 直接原生点击（u2 模式使用 `d.click()` 实现同等效果）：
+点击操作使用 UIAutomator2 直连设备的坐标手势，绕过元素交互检查：
 
 ```python
-# Appium 模式
-driver.execute_script('mobile: clickGesture', {'elementId': target.id})
-# u2 模式（自动适配，无需手动区分）
 bot._click_coordinates(x, y)
-```
-
-### 执行抢票任务
-
-```bash
-./mobile/scripts/start_ticket_grabbing.sh --yes
 ```
 
 
