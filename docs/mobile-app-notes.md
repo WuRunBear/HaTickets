@@ -1,28 +1,23 @@
 # 安卓端 V2 版本介绍
 
-> 这份文档主要保留移动端实现思路。  
-> 当前实际使用时，请优先参考根目录 [README.md](../README.md) 和 [quick-start.md](./quick-start.md)。
+> 当前实际使用请优先参考 [README.md](../README.md) 和 [quick-start.md](./quick-start.md)。
 
 ## 执行命令
 
-### 开启 Appium 服务端
+无需启动额外服务，`adb devices` 能识别设备即可直接执行：
 
 ```bash
-appium --address 0.0.0.0 --port 4723 --relaxed-security
+# 安全探测
+./mobile/scripts/start_ticket_grabbing.sh --probe --yes
+
+# 正式抢票
+./mobile/scripts/start_ticket_grabbing.sh --yes
 ```
 
-如果确定某些按钮点击后不会马上有新页面加载，可以加 `--relaxed-security` 启动 Appium，然后用 `mobile: clickGesture` 直接原生点击：
+点击操作使用 UIAutomator2 直连设备的坐标手势，绕过元素交互检查：
 
 ```python
-# 这里的target是一个可以执行click()的对象
-driver.execute_script('mobile: clickGesture', {'elementId': target.id})
-```
-
-### 执行抢票任务
-
-```bash
-cd mobile
-poetry run python damai_app.py
+bot._click_coordinates(x, y)
 ```
 
 

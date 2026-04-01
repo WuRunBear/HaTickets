@@ -1,8 +1,5 @@
 {
-  "server_url": "http://127.0.0.1:4723",
-  "device_name": "Android",
   "udid": "你的 adb devices 序列号",
-  "platform_version": "你的安卓版本",
   "app_package": "cn.damai",
   "app_activity": ".launcher.splash.SplashMainActivity",
   // 填写大麦详情页链接，脚本会自动提取 itemId 并尽量自动生成搜索关键词

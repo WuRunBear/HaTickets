@@ -5,9 +5,8 @@
 ## 最短路径
 
 1. 连接安卓真机，并保持大麦 App 已登录
-2. 启动 Appium
-3. 自动配置并直接做一次安全探测
-4. 探测通过后，再进入正式抢票
+2. 自动配置并直接做一次安全探测
+3. 探测通过后，再进入正式抢票
 
 这 2 个用户阶段不要混淆：
 
@@ -25,11 +24,9 @@
 
 ```bash
 poetry install
-npm install -g appium
-appium driver install uiautomator2
 ```
 
-如果你还没有 Android SDK，建议直接安装 Android Studio。
+如果你还没有 Android SDK，建议直接安装 Android Studio（需要 `adb` 命令可用）。
 
 ## 2. 连接手机
 
@@ -59,28 +56,7 @@ ABC1234567	device
 adb shell getprop ro.build.version.release
 ```
 
-## 3. 启动 Appium
-
-```bash
-./mobile/scripts/start_appium.sh
-```
-
-这一步会启动一个本地 Appium 服务，需要持续保持运行。
-
-建议做法：
-
-1. 第一个终端运行 `./mobile/scripts/start_appium.sh`
-2. 保持这个终端不要关闭
-3. 第二个终端再去执行抢票脚本
-
-这一步会检查：
-
-- Android SDK
-- 已连接设备
-- 大麦 App 是否安装
-- Appium 服务是否成功启动
-
-## 4. 准备本地配置
+## 3. 准备本地配置
 
 开始前先确认：
 
@@ -99,10 +75,7 @@ cp mobile/config.example.jsonc mobile/config.jsonc
 
 ```jsonc
 {
-  "server_url": "http://127.0.0.1:4723",
-  "device_name": "Android",
   "udid": "你的 adb devices 序列号",
-  "platform_version": "你的安卓版本",
   "app_package": "cn.damai",
   "app_activity": ".launcher.splash.SplashMainActivity",
   "item_url": "https://m.damai.cn/shows/item.html?itemId=你的 itemId",
@@ -131,7 +104,7 @@ cp mobile/config.example.jsonc mobile/config.jsonc
 
 如果你是开发者，也可以额外创建 `mobile/config.local.jsonc` 作为本地覆盖配置。它不会提交到 GitHub，但默认不会自动生效；只有显式通过 `--config mobile/config.local.jsonc` 或 `HATICKETS_CONFIG_PATH=mobile/config.local.jsonc` 才会启用。
 
-## 4.1 开抢前多久启动脚本
+## 3.1 开抢前多久启动脚本
 
 如果开抢时间是 `12:00`，不要等到 `11:59:59` 才运行：
 
@@ -164,7 +137,7 @@ cp mobile/config.example.jsonc mobile/config.jsonc
 
 这表示“最多等 60 秒 CTA 变成可购”，更适合蹲详情页，不适合作为普通默认配置。
 
-## 4.2 推荐：直接用 prompt 做安全探测
+## 3.2 推荐：直接用 prompt 做安全探测
 
 如果你已经在用自然语言入口，最推荐的做法是直接执行：
 
@@ -181,7 +154,7 @@ cp mobile/config.example.jsonc mobile/config.jsonc
 
 也就是说，对普通用户来说，这一步已经覆盖了原来独立的“第 5 步安全探测”。
 
-如果你是手动配置用户，完成第 4 步后，也可以直接用下面这条命令做安全探测：
+如果你是手动配置用户，完成第 3 步后，也可以直接用下面这条命令做安全探测：
 
 ```bash
 ./mobile/scripts/start_ticket_grabbing.sh --probe --yes
@@ -195,19 +168,19 @@ cp mobile/config.example.jsonc mobile/config.jsonc
 
 如果脚本停在详情页，不代表脚本坏了；这正是 `--probe` 的预期行为。
 
-## 5. 真正开始抢票
+## 4. 真正开始抢票
 
-第 4 步探测通过后，直接执行：
+第 3 步探测通过后，直接执行：
 
 ```bash
 ./mobile/scripts/start_ticket_grabbing.sh --yes
 ```
 
-这一步才会真正点击“立即提交”。如果当前配置里还是探测模式，脚本会先提醒你，再自动把配置切到正式抢票模式，然后继续执行。如果下单成功，通常会进入支付页；后续支付需要你自己完成。
+这一步才会真正点击”立即提交”。如果当前配置里还是探测模式，脚本会先提醒你，再自动把配置切到正式抢票模式，然后继续执行。如果下单成功，通常会进入支付页；后续支付需要你自己完成。
 
 再提醒一次：
 
-- 第 5 步不要等到最后一秒再启动
+- 第 4 步不要等到最后一秒再启动
 - 已经验证过流程时，提前 **1 到 2 分钟**
 - 需要自动导航时，提前 **3 到 5 分钟**
 
@@ -221,7 +194,7 @@ cp mobile/config.example.jsonc mobile/config.jsonc
 - 如果没写观演人，脚本会立即停止
 - 如果已经写了多个观演人但没额外写“2张”，脚本会自动按观演人数推断购票数量
 - 只有当你手动写了张数、且和观演人数不一致时，脚本才会停止
-- 这种情况下不会继续搜索、连接 Appium，也不会写配置
+- 这种情况下不会继续搜索、连接设备，也不会写配置
 - 脚本会直接打印一条或两条“可复制的正确命令”，你按输出重试即可
 - 如果当前只连接了一台安卓设备，脚本会自动识别 `udid / platform_version`
 - 在 `apply / probe` 模式下，设备字段也会一起写回 `mobile/config.jsonc`
@@ -257,13 +230,9 @@ cp mobile/config.example.jsonc mobile/config.jsonc
 2. 数据线是否支持传输
 3. 手机上是否点了“允许调试”
 
-### Appium 服务器未启动
+### 设备连接失败
 
-先执行：
-
-```bash
-./mobile/scripts/start_appium.sh
-```
+确认 `adb devices` 能正常识别设备，且手机已开启 USB 调试。
 
 ### 脚本找不到观演人
 

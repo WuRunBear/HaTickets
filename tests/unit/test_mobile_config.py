@@ -18,6 +18,8 @@ from mobile.config import (
 
 _VALID = dict(
     server_url="http://localhost:4723",
+    serial=None,
+    driver_backend="appium",
     device_name="Android",
     udid=None,
     platform_version=None,
@@ -80,6 +82,8 @@ class TestMobileConfigInit:
             app_activity=".launcher.splash.SplashMainActivity",
         )
         assert cfg.server_url == "http://localhost:4723"
+        assert cfg.serial is None
+        assert cfg.driver_backend == "u2"
         assert cfg.device_name == "Pixel 8"
         assert cfg.udid == "R58M123456A"
         assert cfg.platform_version == "14"
@@ -96,6 +100,32 @@ class TestMobileConfigInit:
 
 
 class TestMobileConfigValidation:
+
+    def test_driver_backend_defaults_to_u2(self):
+        payload = _make(server_url=None)
+        payload.pop("driver_backend")
+        cfg = Config(**payload)
+        assert cfg.driver_backend == "u2"
+
+    def test_driver_backend_invalid_raises(self):
+        with pytest.raises(ValueError, match="driver_backend"):
+            Config(**_make(driver_backend="invalid"))
+
+    def test_driver_backend_appium_requires_server_url(self):
+        with pytest.raises(ValueError, match="server_url"):
+            Config(**_make(driver_backend="appium", server_url=None))
+
+    def test_driver_backend_u2_allows_missing_server_url(self):
+        cfg = Config(**_make(driver_backend="u2", server_url=None))
+        assert cfg.server_url is None
+
+    def test_serial_string_is_valid(self):
+        cfg = Config(**_make(serial="c6c4eb67"))
+        assert cfg.serial == "c6c4eb67"
+
+    def test_serial_empty_raises(self):
+        with pytest.raises(ValueError, match="serial"):
+            Config(**_make(serial=""))
 
     def test_invalid_server_url_raises(self):
         with pytest.raises(ValueError, match="server_url"):
@@ -326,6 +356,46 @@ class TestMobileConfigLoadConfig:
         assert cfg.city == "北京"
         assert cfg.if_commit_order is False
         assert cfg.probe_only is True
+        assert cfg.driver_backend == "u2"
+        assert cfg.serial is None
+
+    def test_load_config_reads_driver_backend_and_serial(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        config_data = {
+            "driver_backend": "appium",
+            "serial": "abc123",
+            "server_url": "http://127.0.0.1:4723",
+            "keyword": "test",
+            "users": ["A"],
+            "city": "北京",
+            "date": "01.01",
+            "price": "100元",
+            "price_index": 0,
+            "if_commit_order": False,
+        }
+        (tmp_path / "config.jsonc").write_text(json.dumps(config_data), encoding="utf-8")
+
+        cfg = Config.load_config()
+        assert cfg.driver_backend == "appium"
+        assert cfg.serial == "abc123"
+        assert cfg.server_url == "http://127.0.0.1:4723"
+
+    def test_load_config_appium_requires_server_url(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        config_data = {
+            "driver_backend": "appium",
+            "keyword": "test",
+            "users": ["A"],
+            "city": "北京",
+            "date": "01.01",
+            "price": "100元",
+            "price_index": 0,
+            "if_commit_order": False,
+        }
+        (tmp_path / "config.jsonc").write_text(json.dumps(config_data), encoding="utf-8")
+
+        with pytest.raises(KeyError, match="server_url"):
+            Config.load_config()
 
     def test_load_config_file_not_found(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)

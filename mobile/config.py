@@ -121,9 +121,14 @@ class Config:
                  fast_retry_count=8, fast_retry_interval_ms=120,
                  rush_mode=False,
                  item_url=None, item_id=None, auto_navigate=True,
-                 target_title=None, target_venue=None):
-        # Validate server_url
-        validate_url(server_url, "server_url")
+                 target_title=None, target_venue=None,
+                 serial=None, driver_backend="u2"):
+        if driver_backend not in {"u2", "appium"}:
+            raise ValueError(f"driver_backend 必须是 'u2' 或 'appium'，实际值: {driver_backend!r}")
+
+        # Validate server_url (required only for appium backend)
+        if driver_backend == "appium":
+            validate_url(server_url, "server_url")
 
         # Validate users
         validate_non_empty_list(users, "users")
@@ -149,6 +154,9 @@ class Config:
 
         if udid is not None and (not isinstance(udid, str) or len(udid.strip()) == 0):
             raise ValueError(f"udid 必须是非空字符串或 null，实际值: {udid!r}")
+
+        if serial is not None and (not isinstance(serial, str) or len(serial.strip()) == 0):
+            raise ValueError(f"serial 必须是非空字符串或 null，实际值: {serial!r}")
 
         if platform_version is not None and (not isinstance(platform_version, str) or len(platform_version.strip()) == 0):
             raise ValueError(f"platform_version 必须是非空字符串或 null，实际值: {platform_version!r}")
@@ -229,10 +237,14 @@ class Config:
         self.auto_navigate = auto_navigate
         self.target_title = target_title.strip() if isinstance(target_title, str) else None
         self.target_venue = target_venue.strip() if isinstance(target_venue, str) else None
+        self.serial = serial.strip() if isinstance(serial, str) else None
+        self.driver_backend = driver_backend
 
     def to_dict(self):
         """Return the config as a plain dictionary for rewriting config.jsonc."""
         return {
+            "driver_backend": self.driver_backend,
+            "serial": self.serial,
             "server_url": self.server_url,
             "device_name": self.device_name,
             "udid": self.udid,
@@ -264,7 +276,10 @@ class Config:
     def load_config(config_path=None):
         config = load_config_dict(config_path)
 
-        required_keys = ['server_url', 'users', 'city', 'date', 'price', 'price_index', 'if_commit_order']
+        driver_backend = config.get("driver_backend", "u2")
+        required_keys = ['users', 'city', 'date', 'price', 'price_index', 'if_commit_order']
+        if driver_backend == "appium":
+            required_keys.append("server_url")
         missing = [k for k in required_keys if k not in config]
         if missing:
             raise KeyError(f"配置文件缺少必需字段: {', '.join(missing)}")
@@ -272,7 +287,7 @@ class Config:
         if "keyword" not in config and "item_url" not in config and "item_id" not in config:
             raise KeyError("配置文件缺少必需字段: keyword 或 item_url 或 item_id")
 
-        return Config(config['server_url'],
+        return Config(config.get('server_url'),
                       config.get('keyword'),
                       config['users'],
                       config['city'],
@@ -296,4 +311,6 @@ class Config:
                       config.get('item_id'),
                       config.get('auto_navigate', True),
                       config.get('target_title'),
-                      config.get('target_venue'))
+                      config.get('target_venue'),
+                      config.get('serial'),
+                      driver_backend)
