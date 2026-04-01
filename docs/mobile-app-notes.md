@@ -1,28 +1,36 @@
 # 安卓端 V2 版本介绍
 
-> 这份文档主要保留移动端实现思路。  
-> 当前实际使用时，请优先参考根目录 [README.md](../README.md) 和 [quick-start.md](./quick-start.md)。
+> **注意**：当前默认驱动已切换为 UIAutomator2 (u2) 直连模式，无需 Appium Server。
+> 下文中关于 Appium 的内容为历史实现参考。当前实际使用请优先参考 [README.md](../README.md) 和 [quick-start.md](./quick-start.md)。
 
 ## 执行命令
 
-### 开启 Appium 服务端
+### 驱动模式
 
+**u2 直连（默认，推荐）**：
+```bash
+# 无需启动任何服务，直接执行
+./mobile/scripts/start_ticket_grabbing.sh --probe --yes
+```
+
+**Appium 回退模式**（`config.jsonc` 中 `driver_backend: "appium"`）：
 ```bash
 appium --address 0.0.0.0 --port 4723 --relaxed-security
 ```
 
-如果确定某些按钮点击后不会马上有新页面加载，可以加 `--relaxed-security` 启动 Appium，然后用 `mobile: clickGesture` 直接原生点击：
+Appium 模式下可以用 `mobile: clickGesture` 直接原生点击（u2 模式使用 `d.click()` 实现同等效果）：
 
 ```python
-# 这里的target是一个可以执行click()的对象
+# Appium 模式
 driver.execute_script('mobile: clickGesture', {'elementId': target.id})
+# u2 模式（自动适配，无需手动区分）
+bot._click_coordinates(x, y)
 ```
 
 ### 执行抢票任务
 
 ```bash
-cd mobile
-poetry run python damai_app.py
+./mobile/scripts/start_ticket_grabbing.sh --yes
 ```
 
 
