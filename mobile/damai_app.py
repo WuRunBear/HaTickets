@@ -762,7 +762,7 @@ class DamaiBot:
         last_probe = None
 
         while time.time() < deadline:
-            last_probe = self.probe_current_page()
+            last_probe = self.probe_current_page(fast=True)
             if last_probe["state"] in expected_states:
                 return last_probe
             time.sleep(poll_interval)
@@ -1833,7 +1833,7 @@ class DamaiBot:
 
     def _recover_to_detail_page_for_local_retry(self, initial_probe=None, max_back_steps=8, back_delay=0.15):
         """Recover locally to the current event detail/sku page without rebuilding the Appium session."""
-        current_probe = initial_probe or self.probe_current_page()
+        current_probe = initial_probe or self.probe_current_page(fast=True)
         retryable_states = {"detail_page", "sku_page"}
 
         if current_probe["state"] in retryable_states and (
@@ -1852,7 +1852,7 @@ class DamaiBot:
             time.sleep(back_delay)
             # Use lightweight probe during back-navigation (skip popup
             # dismissal and full probe — saves ~2s per step).
-            current_probe = self._probe_recovery_state()
+            current_probe = self.probe_current_page(fast=True)
             if current_probe["state"] in retryable_states and (
                     not self.item_detail or self._current_page_matches_target(current_probe)):
                 return current_probe
@@ -3000,8 +3000,17 @@ class DamaiBot:
 
         return summary
 
-    def probe_current_page(self):
+    def probe_current_page(self, fast=False):
         """探测当前页面状态和关键控件可见性。"""
+        # Fast mode: delegate to PageProbe (~100ms vs ~1.5s)
+        if fast and hasattr(self, '_page_probe'):
+            result = self._page_probe.probe_current_page(fast=True)
+            if result["state"] != "unknown":
+                logger.info(f"当前页面状态: {result['state']}")
+                return result
+            # Fall through to full probe if fast mode inconclusive
+
+        # Original full probe code below (unchanged)
         state = "unknown"
         current_activity = self._get_current_activity()
         purchase_button = self._has_element(By.ID, "cn.damai:id/trade_project_detail_purchase_status_bar_container_fl")
@@ -3273,7 +3282,7 @@ class DamaiBot:
             self._terminal_failure_reason = None
             self._last_run_outcome = None
             self._log_execution_mode()
-            page_probe = initial_page_probe or self.probe_current_page()
+            page_probe = initial_page_probe or self.probe_current_page(fast=True)
             fast_validation_hot_path = (
                 self.config.rush_mode
                 and not self.config.if_commit_order

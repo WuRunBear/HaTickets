@@ -2038,8 +2038,9 @@ class TestFastRetry:
             "quantity_picker": False,
             "submit_button": False,
         }
-        with patch.object(bot, "probe_current_page", return_value=unknown_probe), \
-             patch.object(bot, "_probe_recovery_state", return_value=detail_probe), \
+        # First call from dismiss_startup_popups fallback returns unknown;
+        # second call (in back-loop with fast=True) returns detail_page.
+        with patch.object(bot, "probe_current_page", side_effect=[unknown_probe, detail_probe]), \
              patch.object(bot, "dismiss_startup_popups"), \
              patch("mobile.damai_app.time.sleep"):
             result = bot._recover_to_detail_page_for_local_retry(
@@ -3439,19 +3440,23 @@ class TestProbeRecoveryState:
             result = bot._probe_recovery_state()
         assert result["state"] == "unknown"
 
-    def test_recover_uses_lightweight_probe_in_back_loop(self, bot):
-        """Back-navigation loop should use _probe_recovery_state, not full probe."""
+    def test_recover_uses_fast_probe_in_back_loop(self, bot):
+        """Back-navigation loop should use probe_current_page(fast=True)."""
         initial_probe = {"state": "order_confirm_page"}
         detail_result = {"state": "detail_page", "purchase_button": True, "price_container": False,
                          "quantity_picker": False, "submit_button": False, "reservation_mode": False,
                          "pending_order_dialog": False}
+        # First probe_current_page call (after dismiss_startup_popups) returns order_confirm;
+        # second call (in back-loop with fast=True) returns detail_page.
         with patch.object(bot, "dismiss_startup_popups"), \
-             patch.object(bot, "probe_current_page", return_value={"state": "order_confirm_page"}), \
-             patch.object(bot, "_press_keycode_safe", return_value=True), \
-             patch.object(bot, "_probe_recovery_state", return_value=detail_result) as light_mock:
+             patch.object(bot, "probe_current_page",
+                          side_effect=[{"state": "order_confirm_page"}, detail_result]) as probe_mock, \
+             patch.object(bot, "_press_keycode_safe", return_value=True):
             result = bot._recover_to_detail_page_for_local_retry(initial_probe)
         assert result["state"] == "detail_page"
-        light_mock.assert_called_once()
+        # Second call should be fast=True (back-loop)
+        assert probe_mock.call_count == 2
+        assert probe_mock.call_args_list[1] == call(fast=True)
 
 
 # ---------------------------------------------------------------------------
