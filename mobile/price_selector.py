@@ -131,24 +131,17 @@ class PriceSelector:
         """Capture the configured price card center so rush mode can tap by coordinate."""
         bot = self._bot
         if bot._using_u2():
-            if xml_root is None:
-                xml_root = bot._dump_hierarchy_xml()
+            result = self._get_price_coords_from_xml(xml_root)
+            if result is not None:
+                return result
+            # Retry once after short wait (cards may still be loading)
             if xml_root is not None:
-                for node in xml_root.iter("node"):
-                    if node.get("resource-id") == "cn.damai:id/project_detail_perform_price_flowlayout":
-                        cards = [
-                            child for child in node
-                            if child.get("class") == "android.widget.FrameLayout"
-                            and child.get("clickable") == "true"
-                        ]
-                        if not (0 <= self._config.price_index < len(cards)):
-                            return None
-                        bounds = bot._parse_bounds(cards[self._config.price_index].get("bounds", ""))
-                        if bounds:
-                            left, top, right, bottom = bounds
-                            return ((left + right) // 2, (top + bottom) // 2)
-                        return None
-                return None
+                import time
+                time.sleep(0.3)
+                result = self._get_price_coords_from_xml(None)  # fresh XML dump
+                if result is not None:
+                    return result
+            return None
 
         try:
             price_container = bot._find(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout")
@@ -168,6 +161,44 @@ class PriceSelector:
             rect["x"] + rect["width"] // 2,
             rect["y"] + rect["height"] // 2,
         )
+
+    def _get_price_coords_from_xml(self, xml_root=None):
+        """Extract price card coordinates from XML hierarchy.
+
+        Searches multiple container IDs to handle both detail-page and SKU-page layouts.
+        Returns (x, y) tuple or None.
+        """
+        bot = self._bot
+        if xml_root is None:
+            xml_root = bot._dump_hierarchy_xml()
+        if xml_root is None:
+            return None
+
+        container_ids = (
+            "cn.damai:id/project_detail_perform_price_flowlayout",
+            "cn.damai:id/layout_price",
+        )
+        for container_id in container_ids:
+            for node in xml_root.iter("node"):
+                if node.get("resource-id") == container_id:
+                    cards = [
+                        child for child in node
+                        if child.get("class") == "android.widget.FrameLayout"
+                        and child.get("clickable") == "true"
+                    ]
+                    if not cards:
+                        continue
+                    if not (0 <= self._config.price_index < len(cards)):
+                        logger.debug(
+                            f"price_index={self._config.price_index} 超出 {container_id} "
+                            f"中的 {len(cards)} 个可点击卡片"
+                        )
+                        continue
+                    bounds = bot._parse_bounds(cards[self._config.price_index].get("bounds", ""))
+                    if bounds:
+                        left, top, right, bottom = bounds
+                        return ((left + right) // 2, (top + bottom) // 2)
+        return None
 
     def _extract_price_digits(self, text):
         """Extract the numeric portion of a ticket price label."""
@@ -398,6 +429,9 @@ class PriceSelector:
             else:
                 cards = bot._container_find_elements(price_container, By.CLASS_NAME, "android.widget.FrameLayout")
                 clickable_cards = [card for card in cards if bot._is_clickable(card)]
+                if not (0 <= self._config.price_index < len(clickable_cards)):
+                    logger.warning(f"price_index={self._config.price_index} 超出可点击卡片数量 {len(clickable_cards)}")
+                    return False
                 target_price = clickable_cards[self._config.price_index]
             bot._click_element_center(target_price, duration=30)
             return True
@@ -422,6 +456,9 @@ class PriceSelector:
                 else:
                     cards = bot._container_find_elements(price_container, By.CLASS_NAME, "android.widget.FrameLayout")
                     clickable_cards = [card for card in cards if bot._is_clickable(card)]
+                    if not (0 <= self._config.price_index < len(clickable_cards)):
+                        logger.warning(f"备用方案: price_index={self._config.price_index} 超出 {len(clickable_cards)}")
+                        return False
                     target_price = clickable_cards[self._config.price_index]
                 bot._click_element_center(target_price, duration=30)
                 return True
