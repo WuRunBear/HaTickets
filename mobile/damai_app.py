@@ -1356,7 +1356,10 @@ class DamaiBot(UIPrimitives):
                         pipeline_result = None
                     if pipeline_result is True:
                         return True
-                    # pipeline_result is None → fall through to normal flow
+                    # pipeline_result is None → fall through to normal flow.
+                    # Refresh page_probe since the pipeline may have advanced
+                    # the app state (e.g. from detail_page to sku_page).
+                    page_probe = self.probe_current_page(fast=True)
             else:
                 self.dismiss_startup_popups()
                 if not self.check_session_valid():
