@@ -349,7 +349,11 @@ class FastPipeline:
                 break
 
         stop_event.set()
-        clicker.join(timeout=0.3)
+        clicker.join(timeout=0.5)
+        # Ensure blind clicker is fully dead — lingering taps can toggle price selection
+        if clicker.is_alive():
+            logger.warning("Blind clicker thread still alive after join, waiting extra")
+            time.sleep(0.5)
 
         if not confirmed:
             return None
@@ -442,7 +446,11 @@ class FastPipeline:
                 break
 
         stop_event.set()
-        clicker.join(timeout=0.3)
+        clicker.join(timeout=0.5)
+        # Ensure blind clicker is fully dead — lingering taps can toggle price selection
+        if clicker.is_alive():
+            logger.warning("Blind clicker thread still alive after join, waiting extra")
+            time.sleep(0.5)
 
         if not confirmed:
             return None
