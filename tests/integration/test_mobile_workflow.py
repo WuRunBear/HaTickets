@@ -73,21 +73,20 @@ class TestFullTicketGrabbingFlow:
             probe_only=False,
         )
 
-        with (
-            patch("mobile.damai_app.Config.load_config", return_value=mock_config),
-            patch("uiautomator2.connect", return_value=mock_device),
-            patch("mobile.damai_app.time.sleep"),
-        ):
+        with \
+            patch("mobile.damai_app.Config.load_config", return_value=mock_config), \
+            patch("uiautomator2.connect", return_value=mock_device), \
+            patch("mobile.damai_app.time.sleep"):
             mock_device.find_element = Mock(return_value=mock_el)
             mock_device.find_elements = Mock(return_value=[mock_el])
             mock_device.execute_script = Mock()
 
             bot = DamaiBot()
-            with (
-                patch.object(bot, "dismiss_startup_popups"),
-                patch.object(bot, "check_session_valid", return_value=True),
-                patch.object(bot, "wait_for_sale_start"),
-                patch.object(bot, "select_performance_date"),
+            with \
+                patch.object(bot, "dismiss_startup_popups"), \
+                patch.object(bot, "check_session_valid", return_value=True), \
+                patch.object(bot, "wait_for_sale_start"), \
+                patch.object(bot, "select_performance_date"), \
                 patch.object(
                     bot,
                     "_enter_purchase_flow_from_detail_page",
@@ -98,14 +97,14 @@ class TestFullTicketGrabbingFlow:
                         "quantity_picker": True,
                         "submit_button": False,
                     },
-                ),
-                patch.object(bot, "_select_price_option", return_value=True),
-                patch.object(bot, "_has_element", return_value=False),
-                patch.object(bot, "ultra_fast_click", return_value=True),
-                patch.object(bot, "_wait_for_submit_ready", return_value=True),
+                ), \
+                patch.object(bot, "_select_price_option", return_value=True), \
+                patch.object(bot, "_has_element", return_value=False), \
+                patch.object(bot, "ultra_fast_click", return_value=True), \
+                patch.object(bot, "_wait_for_submit_ready", return_value=True), \
                 patch.object(
                     bot, "_ensure_attendees_selected_on_confirm_page", return_value=True
-                ),
+                ), \
                 patch.object(
                     bot,
                     "wait_for_page_state",
@@ -116,8 +115,8 @@ class TestFullTicketGrabbingFlow:
                         "quantity_picker": False,
                         "submit_button": True,
                     },
-                ),
-                patch.object(bot, "verify_order_result", return_value="success"),
+                ), \
+                patch.object(bot, "verify_order_result", return_value="success"), \
                 patch.object(
                     bot,
                     "probe_current_page",
@@ -128,8 +127,7 @@ class TestFullTicketGrabbingFlow:
                         "quantity_picker": True,
                         "submit_button": True,
                     },
-                ),
-            ):
+                ):
                 result = bot.run_ticket_grabbing()
             assert result is True
 
@@ -152,21 +150,20 @@ class TestFullTicketGrabbingFlow:
             probe_only=False,
         )
 
-        with (
-            patch("mobile.damai_app.Config.load_config", return_value=mock_config),
-            patch("uiautomator2.connect", return_value=mock_device),
-            patch("mobile.damai_app.time.sleep"),
-        ):
+        with \
+            patch("mobile.damai_app.Config.load_config", return_value=mock_config), \
+            patch("uiautomator2.connect", return_value=mock_device), \
+            patch("mobile.damai_app.time.sleep"):
             mock_device.find_element = Mock(return_value=mock_el)
             mock_device.find_elements = Mock(return_value=[mock_el])
             mock_device.execute_script = Mock()
 
             bot = DamaiBot()
-            with (
-                patch.object(bot, "dismiss_startup_popups"),
-                patch.object(bot, "check_session_valid", return_value=True),
-                patch.object(bot, "wait_for_sale_start"),
-                patch.object(bot, "select_performance_date"),
+            with \
+                patch.object(bot, "dismiss_startup_popups"), \
+                patch.object(bot, "check_session_valid", return_value=True), \
+                patch.object(bot, "wait_for_sale_start"), \
+                patch.object(bot, "select_performance_date"), \
                 patch.object(
                     bot,
                     "_enter_purchase_flow_from_detail_page",
@@ -177,13 +174,13 @@ class TestFullTicketGrabbingFlow:
                         "quantity_picker": True,
                         "submit_button": False,
                     },
-                ),
-                patch.object(bot, "_select_price_option", return_value=True),
-                patch.object(bot, "_has_element", return_value=False),
-                patch.object(bot, "ultra_fast_click", return_value=True),
+                ), \
+                patch.object(bot, "_select_price_option", return_value=True), \
+                patch.object(bot, "_has_element", return_value=False), \
+                patch.object(bot, "ultra_fast_click", return_value=True), \
                 patch.object(
                     bot, "_ensure_attendees_selected_on_confirm_page", return_value=True
-                ),
+                ), \
                 patch.object(
                     bot,
                     "probe_current_page",
@@ -194,11 +191,10 @@ class TestFullTicketGrabbingFlow:
                         "quantity_picker": True,
                         "submit_button": True,
                     },
-                ),
+                ), \
                 patch.object(
                     bot, "_wait_for_submit_ready", return_value=True
-                ) as wait_submit_ready,
-            ):
+                ) as wait_submit_ready:
                 result = bot.run_ticket_grabbing()
 
             assert result is True
@@ -224,18 +220,16 @@ class TestRetryWithDriverRecreation:
             probe_only=False,
         )
 
-        with (
-            patch("mobile.damai_app.Config.load_config", return_value=mock_config),
-            patch("uiautomator2.connect", return_value=mock_device),
-            patch("mobile.damai_app.time.sleep"),
-        ):
+        with \
+            patch("mobile.damai_app.Config.load_config", return_value=mock_config), \
+            patch("uiautomator2.connect", return_value=mock_device), \
+            patch("mobile.damai_app.time.sleep"):
             bot = DamaiBot()
 
             # Make run_ticket_grabbing always fail
-            with (
-                patch.object(bot, "run_ticket_grabbing", return_value=False),
-                patch.object(bot, "_fast_retry_from_current_state", return_value=False),
-            ):
+            with \
+                patch.object(bot, "run_ticket_grabbing", return_value=False), \
+                patch.object(bot, "_fast_retry_from_current_state", return_value=False):
                 with patch.object(bot, "_setup_driver") as mock_setup:
                     result = bot.run_with_retry(max_retries=3)
 

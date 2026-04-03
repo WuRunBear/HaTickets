@@ -215,11 +215,10 @@ def mobile_config():
 @pytest.fixture
 def mock_concert(web_config, mock_selenium_driver):
     """Create a Concert instance with mocked WebDriver."""
-    with (
-        patch("concert.get_chromedriver_path", return_value="/fake/chromedriver"),
-        patch("concert.webdriver.Chrome", return_value=mock_selenium_driver),
-        patch("concert.Service"),
-    ):
+    with \
+        patch("concert.get_chromedriver_path", return_value="/fake/chromedriver"), \
+        patch("concert.webdriver.Chrome", return_value=mock_selenium_driver), \
+        patch("concert.Service"):
         from concert import Concert
 
         concert = Concert(web_config)
@@ -234,10 +233,9 @@ def mock_damai_bot(mobile_config, mock_u2_driver):
     mock_u2_driver.find_element = Mock()
     mock_u2_driver.find_elements = Mock(return_value=[])
 
-    with (
-        patch("mobile.damai_app.Config.load_config", return_value=mobile_config),
-        patch("uiautomator2.connect", return_value=mock_u2_driver),
-    ):
+    with \
+        patch("mobile.damai_app.Config.load_config", return_value=mobile_config), \
+        patch("uiautomator2.connect", return_value=mock_u2_driver):
         from mobile.damai_app import DamaiBot
 
         bot = DamaiBot()

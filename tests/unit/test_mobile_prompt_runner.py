@@ -672,15 +672,14 @@ class TestMain:
         mock_bot.discover_target_event.return_value = discovery
         mock_bot.inspect_current_target_event.return_value = discovery["summary"]
 
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
-            patch("mobile.prompt_runner.load_config_dict", return_value={}),
-            patch("mobile.prompt_runner.Config.load_config") as mock_cfg,
-            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot),
-        ):
+            ), \
+            patch("mobile.prompt_runner.load_config_dict", return_value={}), \
+            patch("mobile.prompt_runner.Config.load_config") as mock_cfg, \
+            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot):
             mock_cfg.return_value = Mock(
                 to_dict=lambda: {
                     "serial": "ABC",
@@ -712,16 +711,15 @@ class TestMain:
         mock_bot.probe_current_page.return_value = {"state": "detail_page"}
         mock_bot.discover_target_event.return_value = None  # discovery failed
 
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
-            patch("mobile.prompt_runner.load_config_dict", return_value={}),
-            patch("mobile.prompt_runner.Config.load_config") as mock_cfg,
-            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot),
-            patch("mobile.prompt_runner.logger") as mock_logger,
-        ):
+            ), \
+            patch("mobile.prompt_runner.load_config_dict", return_value={}), \
+            patch("mobile.prompt_runner.Config.load_config") as mock_cfg, \
+            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot), \
+            patch("mobile.prompt_runner.logger") as mock_logger:
             mock_cfg.return_value = Mock(
                 to_dict=lambda: {
                     "serial": "ABC",
@@ -790,26 +788,25 @@ class TestMain:
         from mobile.prompt_runner import main
 
         mock_bot = self._make_full_mock_bot()
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
-            patch("mobile.prompt_runner.load_config_dict", return_value={}),
+            ), \
+            patch("mobile.prompt_runner.load_config_dict", return_value={}), \
             patch(
                 "mobile.prompt_runner.Config.load_config",
                 return_value=self._base_config_mock(),
-            ),
-            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot),
-            patch("mobile.prompt_runner.save_config_dict") as mock_save,
-            patch("mobile.prompt_runner._resolve_confirmed_date", return_value="04.06"),
+            ), \
+            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot), \
+            patch("mobile.prompt_runner.save_config_dict") as mock_save, \
+            patch("mobile.prompt_runner._resolve_confirmed_date", return_value="04.06"), \
             patch(
                 "mobile.prompt_runner._resolve_confirmed_price",
                 return_value={"index": 0, "text": "580元", "tag": "可预约"},
-            ),
-            patch("mobile.prompt_runner.build_updated_config", return_value={}),
-            patch("mobile.prompt_runner._prompt_yes_no", return_value=True),
-        ):
+            ), \
+            patch("mobile.prompt_runner.build_updated_config", return_value={}), \
+            patch("mobile.prompt_runner._prompt_yes_no", return_value=True):
             result = main(["帮张志涛抢4月6日张杰演唱会 580元", "--mode", "apply", "-y"])
         assert result == 0
         mock_save.assert_called_once()
@@ -829,27 +826,26 @@ class TestMain:
                 price_index=kwargs.get("price_index"),
             )
 
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
-            patch("mobile.prompt_runner.load_config_dict", return_value={}),
+            ), \
+            patch("mobile.prompt_runner.load_config_dict", return_value={}), \
             patch(
                 "mobile.prompt_runner.Config.load_config",
                 return_value=self._base_config_mock(),
-            ),
-            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot),
-            patch("mobile.prompt_runner.save_config_dict"),
-            patch("mobile.prompt_runner._resolve_confirmed_date", return_value="04.06"),
+            ), \
+            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot), \
+            patch("mobile.prompt_runner.save_config_dict"), \
+            patch("mobile.prompt_runner._resolve_confirmed_date", return_value="04.06"), \
             patch(
                 "mobile.prompt_runner._resolve_confirmed_price",
                 return_value={"index": 0, "text": "580元", "tag": "可预约"},
-            ),
-            patch("mobile.prompt_runner.build_updated_config", return_value={}),
-            patch("mobile.prompt_runner.Config") as mock_config_cls,
-            patch("mobile.prompt_runner._prompt_yes_no", return_value=True),
-        ):
+            ), \
+            patch("mobile.prompt_runner.build_updated_config", return_value={}), \
+            patch("mobile.prompt_runner.Config") as mock_config_cls, \
+            patch("mobile.prompt_runner._prompt_yes_no", return_value=True):
             mock_config_cls.side_effect = _config_factory
             mock_config_cls.load_config.return_value = self._base_config_mock()
             result = main(["帮张志涛抢4月6日张杰演唱会 580元", "--mode", "probe", "-y"])
@@ -861,19 +857,18 @@ class TestMain:
         from mobile.prompt_runner import main
 
         mock_bot = self._make_full_mock_bot()
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
-            patch("mobile.prompt_runner.load_config_dict", return_value={}),
+            ), \
+            patch("mobile.prompt_runner.load_config_dict", return_value={}), \
             patch(
                 "mobile.prompt_runner.Config.load_config",
                 return_value=self._base_config_mock(),
-            ),
-            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot),
-            patch("mobile.prompt_runner._resolve_confirmed_date", return_value=None),
-        ):
+            ), \
+            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot), \
+            patch("mobile.prompt_runner._resolve_confirmed_date", return_value=None):
             result = main(["帮张志涛抢4月6日张杰演唱会 580元", "--mode", "apply", "-y"])
         assert result == 1
 
@@ -882,20 +877,19 @@ class TestMain:
         from mobile.prompt_runner import main
 
         mock_bot = self._make_full_mock_bot()
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
-            patch("mobile.prompt_runner.load_config_dict", return_value={}),
+            ), \
+            patch("mobile.prompt_runner.load_config_dict", return_value={}), \
             patch(
                 "mobile.prompt_runner.Config.load_config",
                 return_value=self._base_config_mock(),
-            ),
-            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot),
-            patch("mobile.prompt_runner._resolve_confirmed_date", return_value="04.06"),
-            patch("mobile.prompt_runner._resolve_confirmed_price", return_value=None),
-        ):
+            ), \
+            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot), \
+            patch("mobile.prompt_runner._resolve_confirmed_date", return_value="04.06"), \
+            patch("mobile.prompt_runner._resolve_confirmed_price", return_value=None):
             result = main(["帮张志涛抢4月6日张杰演唱会 580元", "--mode", "apply", "-y"])
         assert result == 1
 
@@ -904,47 +898,45 @@ class TestMain:
         from mobile.prompt_runner import main
 
         mock_bot = self._make_full_mock_bot()
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
-            patch("mobile.prompt_runner.load_config_dict", return_value={}),
+            ), \
+            patch("mobile.prompt_runner.load_config_dict", return_value={}), \
             patch(
                 "mobile.prompt_runner.Config.load_config",
                 return_value=self._base_config_mock(),
-            ),
-            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot),
-            patch("mobile.prompt_runner._resolve_confirmed_date", return_value="04.06"),
+            ), \
+            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot), \
+            patch("mobile.prompt_runner._resolve_confirmed_date", return_value="04.06"), \
             patch(
                 "mobile.prompt_runner._resolve_confirmed_price",
                 return_value={"index": 0, "text": "580元", "tag": "可预约"},
-            ),
-            patch("mobile.prompt_runner.build_updated_config", return_value={}),
-            patch("mobile.prompt_runner._prompt_yes_no", return_value=False),
-        ):
+            ), \
+            patch("mobile.prompt_runner.build_updated_config", return_value={}), \
+            patch("mobile.prompt_runner._prompt_yes_no", return_value=False):
             result = main(["帮张志涛抢4月6日张杰演唱会 580元", "--mode", "apply"])
         assert result == 1
 
     def test_apply_mode_requires_attendee_name(self):
         from mobile.prompt_runner import main
 
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
+            ), \
             patch(
                 "mobile.prompt_runner.load_config_dict",
                 return_value={"users": ["张三", "李四"]},
-            ),
+            ), \
             patch(
                 "mobile.prompt_runner.Config.load_config",
                 return_value=self._base_config_mock(),
-            ),
-            patch("mobile.prompt_runner.DamaiBot") as mock_bot_cls,
-            patch("mobile.prompt_runner.logger") as mock_logger,
-        ):
+            ), \
+            patch("mobile.prompt_runner.DamaiBot") as mock_bot_cls, \
+            patch("mobile.prompt_runner.logger") as mock_logger:
             result = main(["帮我抢4月6日张杰演唱会 580元", "--mode", "apply", "-y"])
 
         assert result == 1
@@ -968,22 +960,21 @@ class TestMain:
     def test_summary_mode_requires_attendee_name(self):
         from mobile.prompt_runner import main
 
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
+            ), \
             patch(
                 "mobile.prompt_runner.load_config_dict",
                 return_value={"users": ["张三", "李四"]},
-            ),
+            ), \
             patch(
                 "mobile.prompt_runner.Config.load_config",
                 return_value=self._base_config_mock(),
-            ),
-            patch("mobile.prompt_runner.DamaiBot") as mock_bot_cls,
-            patch("mobile.prompt_runner.logger") as mock_logger,
-        ):
+            ), \
+            patch("mobile.prompt_runner.DamaiBot") as mock_bot_cls, \
+            patch("mobile.prompt_runner.logger") as mock_logger:
             result = main(["帮我抢4月6日张杰演唱会 580元", "--mode", "summary", "-y"])
 
         assert result == 1
@@ -1002,21 +993,20 @@ class TestMain:
     def test_summary_mode_requires_search_keyword(self):
         from mobile.prompt_runner import main
 
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
+            ), \
             patch(
                 "mobile.prompt_runner.load_config_dict",
                 return_value={"users": ["张三", "李四"]},
-            ),
+            ), \
             patch(
                 "mobile.prompt_runner.parse_prompt",
                 side_effect=ValueError("无法从提示词中提取搜索关键词"),
-            ),
-            patch("mobile.prompt_runner.logger") as mock_logger,
-        ):
+            ), \
+            patch("mobile.prompt_runner.logger") as mock_logger:
             result = main(["12313", "--mode", "summary", "-y"])
 
         assert result == 1
@@ -1031,22 +1021,21 @@ class TestMain:
     def test_summary_mode_stops_when_attendee_count_mismatches_quantity(self):
         from mobile.prompt_runner import main
 
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
+            ), \
             patch(
                 "mobile.prompt_runner.load_config_dict",
                 return_value={"users": ["张三", "李四"]},
-            ),
+            ), \
             patch(
                 "mobile.prompt_runner.Config.load_config",
                 return_value=self._base_config_mock(),
-            ),
-            patch("mobile.prompt_runner.DamaiBot") as mock_bot_cls,
-            patch("mobile.prompt_runner.logger") as mock_logger,
-        ):
+            ), \
+            patch("mobile.prompt_runner.DamaiBot") as mock_bot_cls, \
+            patch("mobile.prompt_runner.logger") as mock_logger:
             result = main(
                 [
                     "帮张文和张志涛抢一张 4月6日张杰演唱会 580元",
@@ -1074,19 +1063,18 @@ class TestMain:
         from mobile.prompt_runner import main
 
         mock_bot = self._make_full_mock_bot()
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
-            patch("mobile.prompt_runner.load_config_dict", return_value={}),
+            ), \
+            patch("mobile.prompt_runner.load_config_dict", return_value={}), \
             patch(
                 "mobile.prompt_runner.Config.load_config",
                 return_value=self._base_config_mock(),
-            ),
-            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot),
-            patch("builtins.print") as mock_print,
-        ):
+            ), \
+            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot), \
+            patch("builtins.print") as mock_print:
             result = main(
                 [
                     "帮张文、张志涛抢，6月6号，陈慧娴的演唱会门票，上海站，内场，票价 1380 元",
@@ -1110,24 +1098,23 @@ class TestMain:
     def test_summary_mode_logs_driver_start_failure_cleanly(self):
         from mobile.prompt_runner import main
 
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
-            patch("mobile.prompt_runner.load_config_dict", return_value={}),
+            ), \
+            patch("mobile.prompt_runner.load_config_dict", return_value={}), \
             patch(
                 "mobile.prompt_runner.Config.load_config",
                 return_value=self._base_config_mock(),
-            ),
+            ), \
             patch(
                 "mobile.prompt_runner.DamaiBot",
                 side_effect=ConnectError(
                     "Device emulator-5554 was not in the list of connected devices"
                 ),
-            ),
-            patch("mobile.prompt_runner.logger") as mock_logger,
-        ):
+            ), \
+            patch("mobile.prompt_runner.logger") as mock_logger:
             result = main(
                 ["帮张志涛抢4月6日张杰演唱会 580元", "--mode", "summary", "-y"]
             )
@@ -1143,18 +1130,17 @@ class TestMain:
         mock_driver = Mock()
         mock_bot = self._make_full_mock_bot()
         mock_bot.driver = mock_driver
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
-            patch("mobile.prompt_runner.load_config_dict", return_value={}),
+            ), \
+            patch("mobile.prompt_runner.load_config_dict", return_value={}), \
             patch(
                 "mobile.prompt_runner.Config.load_config",
                 return_value=self._base_config_mock(),
-            ),
-            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot),
-        ):
+            ), \
+            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot):
             result = main(["帮张志涛抢4月6日张杰演唱会 580元", "--mode", "summary"])
         mock_driver.quit.assert_called_once()
         assert result == 0
@@ -1167,18 +1153,17 @@ class TestMain:
         mock_driver.quit.side_effect = Exception("quit failed")
         mock_bot = self._make_full_mock_bot()
         mock_bot.driver = mock_driver
-        with (
+        with \
             patch(
                 "mobile.prompt_runner._config_path",
                 return_value=Mock(__str__=lambda s: "/mock/config.jsonc"),
-            ),
-            patch("mobile.prompt_runner.load_config_dict", return_value={}),
+            ), \
+            patch("mobile.prompt_runner.load_config_dict", return_value={}), \
             patch(
                 "mobile.prompt_runner.Config.load_config",
                 return_value=self._base_config_mock(),
-            ),
-            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot),
-        ):
+            ), \
+            patch("mobile.prompt_runner.DamaiBot", return_value=mock_bot):
             result = main(["帮张志涛抢4月6日张杰演唱会 580元", "--mode", "summary"])
         assert result == 0  # no exception propagated
 
@@ -1261,18 +1246,17 @@ def test_main_summary_mode_output_format(tmp_path, capsys):
     bot.discover_target_event.return_value = discovery
     bot.inspect_current_target_event.return_value = summary
 
-    with (
-        patch("mobile.prompt_runner._config_path", return_value=config_path),
+    with \
+        patch("mobile.prompt_runner._config_path", return_value=config_path), \
         patch(
             "mobile.prompt_runner.load_config_dict", return_value=base_config.to_dict()
-        ),
-        patch("mobile.prompt_runner.Config.load_config", return_value=base_config),
-        patch("mobile.prompt_runner.DamaiBot", return_value=bot),
+        ), \
+        patch("mobile.prompt_runner.Config.load_config", return_value=base_config), \
+        patch("mobile.prompt_runner.DamaiBot", return_value=bot), \
         patch(
             "mobile.prompt_runner.choose_price_option",
             return_value=summary["price_options"][0],
-        ),
-    ):
+        ):
         assert (
             prompt_runner.main(["帮张志涛买一张马思唯的上海 4 月 4 日的看台票 899"])
             == 0

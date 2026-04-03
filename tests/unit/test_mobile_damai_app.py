@@ -130,10 +130,9 @@ def bot():
         probe_only=False,
     )
 
-    with (
-        patch("mobile.damai_app.Config.load_config", return_value=mock_config),
-        patch("uiautomator2.connect", return_value=mock_driver),
-    ):
+    with \
+        patch("mobile.damai_app.Config.load_config", return_value=mock_config), \
+        patch("uiautomator2.connect", return_value=mock_driver):
         bot = DamaiBot()
     return bot
 
@@ -162,10 +161,9 @@ class TestInitialization:
             probe_only=True,
         )
 
-        with (
-            patch("uiautomator2.connect", return_value=mock_driver),
-            patch("mobile.damai_app.Config.load_config") as load_config,
-        ):
+        with \
+            patch("uiautomator2.connect", return_value=mock_driver), \
+            patch("mobile.damai_app.Config.load_config") as load_config:
             bot = DamaiBot(config=injected_config)
 
         assert bot.config is injected_config
@@ -296,10 +294,9 @@ class TestCachedTap:
     def test_cache_hit_clicks_coordinates_and_returns_true(self, bot):
         """Warm path: cached (x, y) → single _click_coordinates call, True."""
         bot._cached_hot_path_coords["city"] = (300, 500)
-        with (
-            patch.object(bot, "_click_coordinates") as click_coords,
-            patch.object(bot, "ultra_fast_click") as ufc,
-        ):
+        with \
+            patch.object(bot, "_click_coordinates") as click_coords, \
+            patch.object(bot, "ultra_fast_click") as ufc:
             result = bot._cached_tap("city", By.ID, "some.id", timeout=0.3)
         assert result is True
         click_coords.assert_called_once_with(300, 500)
@@ -312,10 +309,9 @@ class TestCachedTap:
         mock_selector.info = {
             "bounds": {"left": 100, "top": 200, "right": 300, "bottom": 260}
         }
-        with (
-            patch.object(bot, "_appium_selector_to_u2", return_value=mock_selector),
-            patch.object(bot, "_click_coordinates") as click_coords,
-        ):
+        with \
+            patch.object(bot, "_appium_selector_to_u2", return_value=mock_selector), \
+            patch.object(bot, "_click_coordinates") as click_coords:
             result = bot._cached_tap(
                 "city",
                 ANDROID_UIAUTOMATOR,
@@ -346,10 +342,9 @@ class TestCachedTap:
         mock_selector.wait.return_value = True
         mock_selector.info = {"bounds": None}
         mock_selector.get.return_value = mock_el
-        with (
-            patch.object(bot, "_appium_selector_to_u2", return_value=mock_selector),
-            patch.object(bot, "_click_element_center") as click_center,
-        ):
+        with \
+            patch.object(bot, "_appium_selector_to_u2", return_value=mock_selector), \
+            patch.object(bot, "_click_element_center") as click_center:
             result = bot._cached_tap("k", By.ID, "id", timeout=0.1)
         assert result is True
         click_center.assert_called_once_with(mock_el, duration=50)
@@ -372,10 +367,9 @@ class TestCachedTap:
         mock_selector.info = {
             "bounds": {"left": 50, "top": 100, "right": 150, "bottom": 140}
         }
-        with (
-            patch.object(bot, "_appium_selector_to_u2", return_value=mock_selector),
-            patch.object(bot, "_click_coordinates") as click_coords,
-        ):
+        with \
+            patch.object(bot, "_appium_selector_to_u2", return_value=mock_selector), \
+            patch.object(bot, "_click_coordinates") as click_coords:
             bot._cached_tap("btn", By.ID, "id", timeout=0.2)  # cold
             bot._cached_tap("btn", By.ID, "id", timeout=0.2)  # warm
         assert click_coords.call_count == 2
@@ -391,10 +385,9 @@ class TestBatchClick:
     def test_batch_click_all_success(self, bot):
         """ultra_fast_click called for each element pair."""
         elements = [("by1", "v1"), ("by2", "v2"), ("by3", "v3")]
-        with (
-            patch.object(bot, "ultra_fast_click", return_value=True) as ufc,
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+        with \
+            patch.object(bot, "ultra_fast_click", return_value=True) as ufc, \
+            patch("mobile.damai_app.time") as mock_time:
             bot.batch_click(elements, delay=0.1)
 
         assert ufc.call_count == 3
@@ -405,11 +398,10 @@ class TestBatchClick:
     def test_batch_click_some_fail(self, bot, caplog):
         """Failed clicks log a warning but processing continues."""
         elements = [("by1", "v1"), ("by2", "v2")]
-        with (
-            caplog.at_level("WARNING", logger="mobile.ui_primitives"),
-            patch.object(bot, "ultra_fast_click", side_effect=[False, True]) as ufc,
-            patch("mobile.ui_primitives.time"),
-        ):
+        with \
+            caplog.at_level("WARNING", logger="mobile.ui_primitives"), \
+            patch.object(bot, "ultra_fast_click", side_effect=[False, True]) as ufc, \
+            patch("mobile.ui_primitives.time"):
             bot.batch_click(elements, delay=0.1)
 
         assert ufc.call_count == 2
@@ -427,11 +419,10 @@ class TestUltraBatchClick:
         el1 = _make_mock_element(x=10, y=20, width=100, height=50)
         el2 = _make_mock_element(x=200, y=300, width=60, height=30)
 
-        with (
-            caplog.at_level("DEBUG", logger="mobile.ui_primitives"),
-            patch.object(bot, "_wait_for_element", side_effect=[el1, el2]),
-            patch("mobile.ui_primitives.time"),
-        ):
+        with \
+            caplog.at_level("DEBUG", logger="mobile.ui_primitives"), \
+            patch.object(bot, "_wait_for_element", side_effect=[el1, el2]), \
+            patch("mobile.ui_primitives.time"):
             bot.ultra_batch_click([(By.ID, "v1"), (By.ID, "v2")], timeout=2)
 
         assert "成功找到 2 个用户" in caplog.text
@@ -440,13 +431,12 @@ class TestUltraBatchClick:
         """Timed-out elements are skipped; found ones are still clicked."""
         el1 = _make_mock_element(x=10, y=20, width=100, height=50)
 
-        with (
-            caplog.at_level("DEBUG", logger="mobile.ui_primitives"),
+        with \
+            caplog.at_level("DEBUG", logger="mobile.ui_primitives"), \
             patch.object(
                 bot, "_wait_for_element", side_effect=[el1, TimeoutException("timeout")]
-            ),
-            patch("mobile.ui_primitives.time"),
-        ):
+            ), \
+            patch("mobile.ui_primitives.time"):
             bot.ultra_batch_click([(By.ID, "v1"), (By.ID, "v2")], timeout=2)
 
         assert "超时未找到用户: v2" in caplog.text
@@ -539,11 +529,11 @@ class TestAutoNavigation:
             assert bot._current_page_matches_target({"state": "sku_page"}) is False
 
     def test_exit_non_target_event_context_backs_out_until_search_page(self, bot):
-        with (
+        with \
             patch.object(
                 bot, "_current_page_matches_target", side_effect=[False, False]
-            ),
-            patch.object(bot, "dismiss_startup_popups"),
+            ), \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -551,8 +541,7 @@ class TestAutoNavigation:
                     {"state": "detail_page"},
                     {"state": "search_page"},
                 ],
-            ),
-        ):
+            ):
             result = bot._exit_non_target_event_context({"state": "sku_page"})
 
         assert result["state"] == "search_page"
@@ -561,21 +550,21 @@ class TestAutoNavigation:
     def test_discover_target_event_exits_wrong_sku_page_before_search(self, bot):
         bot.config.keyword = "余佳运 演唱会"
 
-        with (
+        with \
             patch.object(
                 bot, "_recover_to_navigation_start", return_value={"state": "sku_page"}
-            ),
+            ), \
             patch.object(
                 bot, "_current_page_matches_target", side_effect=[False, False]
-            ),
+            ), \
             patch.object(
                 bot,
                 "_exit_non_target_event_context",
                 return_value={"state": "search_page"},
-            ) as exit_context,
+            ) as exit_context, \
             patch.object(
                 bot, "_submit_search_keyword", return_value=True
-            ) as submit_keyword,
+            ) as submit_keyword, \
             patch.object(
                 bot,
                 "_open_target_from_search_results",
@@ -583,11 +572,10 @@ class TestAutoNavigation:
                     "opened": True,
                     "search_results": [{"score": 80, "title": "余佳运演唱会"}],
                 },
-            ),
+            ), \
             patch.object(
                 bot, "probe_current_page", return_value={"state": "detail_page"}
-            ),
-        ):
+            ):
             result = bot.discover_target_event(
                 ["余佳运 演唱会"], initial_probe={"state": "sku_page"}
             )
@@ -597,19 +585,18 @@ class TestAutoNavigation:
         submit_keyword.assert_called_once()
 
     def test_navigate_to_target_event_from_search_page(self, bot):
-        with (
+        with \
             patch.object(
                 bot,
                 "_recover_to_navigation_start",
                 return_value={"state": "search_page"},
-            ),
+            ), \
             patch.object(
                 bot, "_submit_search_keyword", return_value=True
-            ) as submit_keyword,
+            ) as submit_keyword, \
             patch.object(
                 bot, "_open_target_from_search_results", return_value=True
-            ) as open_target,
-        ):
+            ) as open_target:
             result = bot.navigate_to_target_event({"state": "unknown"})
 
         assert result is True
@@ -617,12 +604,11 @@ class TestAutoNavigation:
         open_target.assert_called_once()
 
     def test_recover_to_navigation_start_handles_back_key_failure(self, bot):
-        with (
-            patch.object(bot, "_press_keycode_safe", return_value=False),
-            patch.object(bot, "probe_current_page", return_value={"state": "unknown"}),
-            patch.object(bot.d, "app_start") as app_start,
-            patch("mobile.damai_app.time.sleep"),
-        ):
+        with \
+            patch.object(bot, "_press_keycode_safe", return_value=False), \
+            patch.object(bot, "probe_current_page", return_value={"state": "unknown"}), \
+            patch.object(bot.d, "app_start") as app_start, \
+            patch("mobile.damai_app.time.sleep"):
             result = bot._recover_to_navigation_start({"state": "unknown"})
 
         app_start.assert_called_once_with(bot.config.app_package, stop=False)
@@ -631,18 +617,17 @@ class TestAutoNavigation:
     def test_fast_retry_does_not_submit_when_commit_disabled(self, bot):
         bot.config.if_commit_order = False
 
-        with (
+        with \
             patch.object(
                 bot, "probe_current_page", return_value={"state": "order_confirm_page"}
-            ),
+            ), \
             patch.object(
                 bot, "_ensure_attendees_selected_on_confirm_page", return_value=True
-            ),
+            ), \
             patch.object(
                 bot, "smart_wait_for_element", return_value=True
-            ) as wait_for_element,
-            patch.object(bot, "smart_wait_and_click") as smart_click,
-        ):
+            ) as wait_for_element, \
+            patch.object(bot, "smart_wait_and_click") as smart_click:
             result = bot._fast_retry_from_current_state()
 
         assert result is True
@@ -650,14 +635,13 @@ class TestAutoNavigation:
         smart_click.assert_not_called()
 
     def test_run_with_retry_stops_on_terminal_failure(self, bot):
-        with (
-            patch("mobile.damai_app.time.sleep"),
+        with \
+            patch("mobile.damai_app.time.sleep"), \
             patch.object(
                 bot, "run_ticket_grabbing", side_effect=self._mark_terminal_failure(bot)
-            ),
-            patch.object(bot, "_fast_retry_from_current_state") as fast_retry,
-            patch.object(bot, "_setup_driver") as setup_driver,
-        ):
+            ), \
+            patch.object(bot, "_fast_retry_from_current_state") as fast_retry, \
+            patch.object(bot, "_setup_driver") as setup_driver:
             result = bot.run_with_retry(max_retries=3)
 
         assert result is False
@@ -682,12 +666,12 @@ class TestRunTicketGrabbing:
     def test_run_ticket_grabbing_auto_navigates_from_homepage(self, bot):
         bot.config.probe_only = True
 
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
-            patch.object(bot, "check_session_valid", return_value=True),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
+            patch.object(bot, "check_session_valid", return_value=True), \
             patch.object(
                 bot, "navigate_to_target_event", return_value=True
-            ) as navigate,
+            ) as navigate, \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -709,9 +693,8 @@ class TestRunTicketGrabbing:
                         "reservation_mode": False,
                     },
                 ],
-            ),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.3)
             result = bot.run_ticket_grabbing()
 
@@ -722,8 +705,8 @@ class TestRunTicketGrabbing:
         """Homepage or other non-detail states fail fast with a clear result."""
         bot.config.auto_navigate = False
 
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -734,10 +717,9 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "smart_wait_and_click") as smart_click,
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "smart_wait_and_click") as smart_click, \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.return_value = 0.0
             result = bot.run_ticket_grabbing()
 
@@ -748,8 +730,8 @@ class TestRunTicketGrabbing:
         """probe_only stops before purchase when detail-page essentials are present."""
         bot.config.probe_only = True
 
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -760,10 +742,9 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "smart_wait_and_click") as smart_click,
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "smart_wait_and_click") as smart_click, \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.1)
             result = bot.run_ticket_grabbing()
 
@@ -774,9 +755,9 @@ class TestRunTicketGrabbing:
         """The first runtime log should clearly state this is only a probe."""
         bot.config.probe_only = True
 
-        with (
-            caplog.at_level("INFO", logger="mobile.damai_app"),
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            caplog.at_level("INFO", logger="mobile.damai_app"), \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -787,9 +768,8 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.1)
             result = bot.run_ticket_grabbing()
 
@@ -803,8 +783,8 @@ class TestRunTicketGrabbing:
         """probe_only reports failure when detail-page essentials are missing."""
         bot.config.probe_only = True
 
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -815,9 +795,8 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.return_value = 0.0
             result = bot.run_ticket_grabbing()
 
@@ -827,8 +806,8 @@ class TestRunTicketGrabbing:
         """probe_only succeeds when the ticket sku page is already open."""
         bot.config.probe_only = True
 
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -839,10 +818,9 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "smart_wait_and_click") as smart_click,
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "smart_wait_and_click") as smart_click, \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.1)
             result = bot.run_ticket_grabbing()
 
@@ -851,8 +829,8 @@ class TestRunTicketGrabbing:
 
     def test_run_ticket_grabbing_success(self, bot):
         """All phases succeed, returns True."""
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -863,8 +841,8 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
             patch.object(
                 bot,
                 "_enter_purchase_flow_from_detail_page",
@@ -873,14 +851,13 @@ class TestRunTicketGrabbing:
                     "price_container": True,
                     "reservation_mode": False,
                 },
-            ),
-            patch.object(bot, "_wait_for_submit_ready", return_value=True),
-            patch.object(bot, "smart_wait_and_click", return_value=True),
-            patch.object(bot, "ultra_fast_click", return_value=True),
-            patch.object(bot, "ultra_batch_click"),
-            patch.object(bot, "_submit_order_fast", return_value="success"),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "_wait_for_submit_ready", return_value=True), \
+            patch.object(bot, "smart_wait_and_click", return_value=True), \
+            patch.object(bot, "ultra_fast_click", return_value=True), \
+            patch.object(bot, "ultra_batch_click"), \
+            patch.object(bot, "_submit_order_fast", return_value="success"), \
+            patch("mobile.damai_app.time") as mock_time:
             # Provide enough time.time() values for the confirm-retry loop
             mock_time.time.side_effect = _make_time_side_effect(0.0, 1.5)
             # Mock find_element for price container + target_price
@@ -900,8 +877,8 @@ class TestRunTicketGrabbing:
         bot.config.rush_mode = True
         bot.config.if_commit_order = False
 
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -912,8 +889,8 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
             patch.object(
                 bot,
                 "_enter_purchase_flow_from_detail_page",
@@ -924,19 +901,18 @@ class TestRunTicketGrabbing:
                     "price_coords": (240, 1560),
                     "buy_button_coords": (320, 1880),
                 },
-            ) as enter_purchase_flow,
+            ) as enter_purchase_flow, \
             patch.object(
                 bot, "_select_price_option", return_value=True
-            ) as select_price,
-            patch.object(bot, "_wait_for_submit_ready", return_value=True),
+            ) as select_price, \
+            patch.object(bot, "_wait_for_submit_ready", return_value=True), \
             patch.object(
                 bot, "_ensure_attendees_selected_on_confirm_page", return_value=True
-            ),
-            patch.object(bot, "_burst_click_coordinates") as burst_click_coords,
-            patch.object(bot, "ultra_fast_click", return_value=True),
-            patch.object(bot, "ultra_batch_click"),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "_burst_click_coordinates") as burst_click_coords, \
+            patch.object(bot, "ultra_fast_click", return_value=True), \
+            patch.object(bot, "ultra_batch_click"), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.9)
             mock_price_container = Mock()
             mock_target = _make_mock_element()
@@ -957,8 +933,8 @@ class TestRunTicketGrabbing:
         """if_commit_order=False waits for confirm page but never clicks submit."""
         bot.config.if_commit_order = False
 
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -969,8 +945,8 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
             patch.object(
                 bot,
                 "_enter_purchase_flow_from_detail_page",
@@ -979,18 +955,17 @@ class TestRunTicketGrabbing:
                     "price_container": True,
                     "reservation_mode": False,
                 },
-            ),
+            ), \
             patch.object(
                 bot, "_wait_for_submit_ready", return_value=True
-            ) as wait_submit_ready,
+            ) as wait_submit_ready, \
             patch.object(
                 bot, "_ensure_attendees_selected_on_confirm_page", return_value=True
-            ),
-            patch.object(bot, "smart_wait_and_click", return_value=True) as smart_click,
-            patch.object(bot, "ultra_fast_click", return_value=True),
-            patch.object(bot, "ultra_batch_click"),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "smart_wait_and_click", return_value=True) as smart_click, \
+            patch.object(bot, "ultra_fast_click", return_value=True), \
+            patch.object(bot, "ultra_batch_click"), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 1.2)
             mock_price_container = Mock()
             mock_target = _make_mock_element()
@@ -1007,9 +982,9 @@ class TestRunTicketGrabbing:
         """Commit-disabled runs should be labeled as developer validation in logs."""
         bot.config.if_commit_order = False
 
-        with (
-            caplog.at_level("INFO", logger="mobile.damai_app"),
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            caplog.at_level("INFO", logger="mobile.damai_app"), \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -1020,8 +995,8 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
             patch.object(
                 bot,
                 "_enter_purchase_flow_from_detail_page",
@@ -1030,15 +1005,14 @@ class TestRunTicketGrabbing:
                     "price_container": True,
                     "reservation_mode": False,
                 },
-            ),
-            patch.object(bot, "_wait_for_submit_ready", return_value=True),
+            ), \
+            patch.object(bot, "_wait_for_submit_ready", return_value=True), \
             patch.object(
                 bot, "_ensure_attendees_selected_on_confirm_page", return_value=True
-            ),
-            patch.object(bot, "ultra_fast_click", return_value=True),
-            patch.object(bot, "ultra_batch_click"),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "ultra_fast_click", return_value=True), \
+            patch.object(bot, "ultra_batch_click"), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.8)
             mock_price_container = Mock()
             mock_target = _make_mock_element()
@@ -1058,8 +1032,8 @@ class TestRunTicketGrabbing:
         """sku_page can continue directly to confirm page without returning to detail."""
         bot.config.if_commit_order = False
 
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -1070,19 +1044,18 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
             patch.object(
                 bot, "_wait_for_submit_ready", return_value=True
-            ) as wait_submit_ready,
+            ) as wait_submit_ready, \
             patch.object(
                 bot, "_ensure_attendees_selected_on_confirm_page", return_value=True
-            ),
-            patch.object(bot, "smart_wait_and_click") as smart_click,
-            patch.object(bot, "ultra_fast_click", return_value=True),
-            patch.object(bot, "ultra_batch_click"),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "smart_wait_and_click") as smart_click, \
+            patch.object(bot, "ultra_fast_click", return_value=True), \
+            patch.object(bot, "ultra_batch_click"), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.8)
             mock_price_container = Mock()
             mock_target = _make_mock_element()
@@ -1102,9 +1075,9 @@ class TestRunTicketGrabbing:
         """Reservation-only sku pages stop safely before tapping the bottom action."""
         bot.config.if_commit_order = False
 
-        with (
-            caplog.at_level("WARNING", logger="mobile.damai_app"),
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            caplog.at_level("WARNING", logger="mobile.damai_app"), \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -1134,11 +1107,10 @@ class TestRunTicketGrabbing:
                         "reservation_mode": True,
                     },
                 ],
-            ),
-            patch.object(bot, "wait_for_sale_start"),
-            patch.object(bot, "ultra_fast_click") as fast_click,
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
+            patch.object(bot, "ultra_fast_click") as fast_click, \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.return_value = 0.0
 
             result = bot.run_ticket_grabbing()
@@ -1158,9 +1130,9 @@ class TestRunTicketGrabbing:
         """Commit-disabled mode fails safely if the confirm page never becomes ready."""
         bot.config.if_commit_order = False
 
-        with (
-            caplog.at_level("WARNING", logger="mobile.damai_app"),
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            caplog.at_level("WARNING", logger="mobile.damai_app"), \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -1171,8 +1143,8 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
             patch.object(
                 bot,
                 "_enter_purchase_flow_from_detail_page",
@@ -1181,13 +1153,12 @@ class TestRunTicketGrabbing:
                     "price_container": True,
                     "reservation_mode": False,
                 },
-            ),
-            patch.object(bot, "_wait_for_submit_ready", return_value=False),
-            patch.object(bot, "smart_wait_and_click", return_value=True),
-            patch.object(bot, "ultra_fast_click", return_value=True),
-            patch.object(bot, "ultra_batch_click", return_value=0),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "_wait_for_submit_ready", return_value=False), \
+            patch.object(bot, "smart_wait_and_click", return_value=True), \
+            patch.object(bot, "ultra_fast_click", return_value=True), \
+            patch.object(bot, "ultra_batch_click", return_value=0), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_monotonic(0.0, 2.0)
             mock_price_container = Mock()
             mock_target = _make_mock_element()
@@ -1202,8 +1173,8 @@ class TestRunTicketGrabbing:
 
     def test_run_ticket_grabbing_city_fail(self, bot):
         """City selection fails, returns False immediately."""
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -1214,11 +1185,10 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
-            patch.object(bot, "_select_city_from_detail_page", return_value=False),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
+            patch.object(bot, "_select_city_from_detail_page", return_value=False), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.return_value = 0.0
             result = bot.run_ticket_grabbing()
 
@@ -1226,8 +1196,8 @@ class TestRunTicketGrabbing:
 
     def test_run_ticket_grabbing_book_fail(self, bot):
         """Booking button fails, returns False."""
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -1238,14 +1208,13 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
             patch.object(
                 bot, "_enter_purchase_flow_from_detail_page", return_value=None
-            ),
-            patch.object(bot, "ultra_batch_click"),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "ultra_batch_click"), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.return_value = 0.0
             result = bot.run_ticket_grabbing()
 
@@ -1253,8 +1222,8 @@ class TestRunTicketGrabbing:
 
     def test_run_ticket_grabbing_exception_returns_false(self, bot):
         """Unexpected exception in flow returns False."""
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -1265,11 +1234,10 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
-            patch.object(bot, "smart_wait_and_click", side_effect=RuntimeError("boom")),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
+            patch.object(bot, "smart_wait_and_click", side_effect=RuntimeError("boom")), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.return_value = 0.0
             result = bot.run_ticket_grabbing()
 
@@ -1279,8 +1247,8 @@ class TestRunTicketGrabbing:
         self, bot
     ):
         """Submit timeout should fail closed to avoid false success and duplicate submit."""
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -1291,8 +1259,8 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
             patch.object(
                 bot,
                 "_enter_purchase_flow_from_detail_page",
@@ -1301,16 +1269,15 @@ class TestRunTicketGrabbing:
                     "price_container": True,
                     "reservation_mode": False,
                 },
-            ),
-            patch.object(bot, "_wait_for_submit_ready", return_value=True),
-            patch.object(bot, "smart_wait_and_click", return_value=True),
-            patch.object(bot, "ultra_fast_click", return_value=True),
-            patch.object(bot, "ultra_batch_click"),
+            ), \
+            patch.object(bot, "_wait_for_submit_ready", return_value=True), \
+            patch.object(bot, "smart_wait_and_click", return_value=True), \
+            patch.object(bot, "ultra_fast_click", return_value=True), \
+            patch.object(bot, "ultra_batch_click"), \
             patch.object(
                 bot, "_submit_order_fast", return_value="timeout"
-            ) as submit_fast,
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ) as submit_fast, \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 1.0)
             mock_price_container = Mock()
             mock_target = _make_mock_element()
@@ -1328,8 +1295,8 @@ class TestRunTicketGrabbing:
         self, bot
     ):
         """Existing unpaid order means submit flow already succeeded and only payment is pending."""
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -1340,8 +1307,8 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
             patch.object(
                 bot,
                 "_enter_purchase_flow_from_detail_page",
@@ -1350,17 +1317,16 @@ class TestRunTicketGrabbing:
                     "price_container": True,
                     "reservation_mode": False,
                 },
-            ),
-            patch.object(bot, "_wait_for_submit_ready", return_value=True),
+            ), \
+            patch.object(bot, "_wait_for_submit_ready", return_value=True), \
             patch.object(
                 bot, "_ensure_attendees_selected_on_confirm_page", return_value=True
-            ),
-            patch.object(bot, "smart_wait_and_click", return_value=True),
-            patch.object(bot, "ultra_fast_click", return_value=True),
-            patch.object(bot, "ultra_batch_click"),
-            patch.object(bot, "_submit_order_fast", return_value="existing_order"),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "smart_wait_and_click", return_value=True), \
+            patch.object(bot, "ultra_fast_click", return_value=True), \
+            patch.object(bot, "ultra_batch_click"), \
+            patch.object(bot, "_submit_order_fast", return_value="existing_order"), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 1.0)
             mock_price_container = Mock()
             mock_target = _make_mock_element()
@@ -1377,9 +1343,9 @@ class TestRunTicketGrabbing:
     def test_run_ticket_grabbing_returns_success_when_pending_order_dialog_detected_early(
         self, bot
     ):
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
-            patch.object(bot, "check_session_valid", return_value=True),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
+            patch.object(bot, "check_session_valid", return_value=True), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -1392,8 +1358,7 @@ class TestRunTicketGrabbing:
                     "reservation_mode": False,
                     "pending_order_dialog": True,
                 },
-            ),
-        ):
+            ):
             result = bot.run_ticket_grabbing()
 
         assert result is True
@@ -1415,14 +1380,14 @@ class TestRunTicketGrabbing:
             "reservation_mode": False,
         }
 
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
-            patch.object(bot, "check_session_valid", return_value=True),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
+            patch.object(bot, "check_session_valid", return_value=True), \
             patch.object(
                 bot, "probe_current_page", return_value=detail_probe
-            ) as probe_page,
-            patch.object(bot, "_prepare_detail_page_hot_path") as prepare_detail,
-            patch.object(bot, "wait_for_sale_start"),
+            ) as probe_page, \
+            patch.object(bot, "_prepare_detail_page_hot_path") as prepare_detail, \
+            patch.object(bot, "wait_for_sale_start"), \
             patch.object(
                 bot,
                 "_enter_purchase_flow_from_detail_page",
@@ -1431,17 +1396,16 @@ class TestRunTicketGrabbing:
                     "price_container": True,
                     "reservation_mode": False,
                 },
-            ),
-            patch.object(bot, "_select_price_option", return_value=True),
-            patch.object(bot, "_wait_for_submit_ready", return_value=True),
+            ), \
+            patch.object(bot, "_select_price_option", return_value=True), \
+            patch.object(bot, "_wait_for_submit_ready", return_value=True), \
             patch.object(
                 bot, "_ensure_attendees_selected_on_confirm_page", return_value=True
-            ),
-            patch.object(bot, "_submit_order_fast", return_value="success"),
-            patch.object(bot, "ultra_fast_click", return_value=True),
-            patch.object(bot, "ultra_batch_click"),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "_submit_order_fast", return_value="success"), \
+            patch.object(bot, "ultra_fast_click", return_value=True), \
+            patch.object(bot, "ultra_batch_click"), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 1.0)
             bot.driver.find_elements.return_value = []
 
@@ -1454,8 +1418,8 @@ class TestRunTicketGrabbing:
 
     def test_run_ticket_grabbing_no_driver_quit_in_finally(self, bot):
         """Verify driver.quit is NOT called inside run_ticket_grabbing's finally block."""
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -1466,11 +1430,10 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
-            patch.object(bot, "smart_wait_and_click", return_value=False),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
+            patch.object(bot, "smart_wait_and_click", return_value=False), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.return_value = 0.0
             bot.run_ticket_grabbing()
 
@@ -1482,8 +1445,8 @@ class TestRunTicketGrabbing:
         """Direct jump to order confirm page should skip manual user selection."""
         bot.config.if_commit_order = False
 
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -1494,16 +1457,15 @@ class TestRunTicketGrabbing:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
-            patch.object(bot, "_wait_for_submit_ready", return_value=True),
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
+            patch.object(bot, "_wait_for_submit_ready", return_value=True), \
             patch.object(
                 bot, "_ensure_attendees_selected_on_confirm_page", return_value=True
-            ),
-            patch.object(bot, "ultra_fast_click", return_value=True),
-            patch.object(bot, "ultra_batch_click") as batch_click,
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "ultra_fast_click", return_value=True), \
+            patch.object(bot, "ultra_batch_click") as batch_click, \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.8)
             mock_price_container = Mock()
             mock_target = _make_mock_element()
@@ -1537,12 +1499,11 @@ class TestPageStateHelpers:
 
         bot.config.keyword = "张杰 演唱会"
 
-        with (
-            patch.object(bot, "_find_all", return_value=[card]),
+        with \
+            patch.object(bot, "_find_all", return_value=[card]), \
             patch.object(
                 bot, "_container_find_elements", side_effect=fake_container_find
-            ),
-        ):
+            ):
             results = bot.collect_search_results()
 
         assert results == [
@@ -1558,10 +1519,9 @@ class TestPageStateHelpers:
         assert results[0]["score"] >= 60
 
     def test_wait_for_purchase_entry_result_detects_sku_without_full_probe(self, bot):
-        with (
-            patch.object(bot, "_has_any_element", side_effect=[False, True]),
-            patch.object(bot, "is_reservation_sku_mode", return_value=False),
-        ):
+        with \
+            patch.object(bot, "_has_any_element", side_effect=[False, True]), \
+            patch.object(bot, "is_reservation_sku_mode", return_value=False):
             result = bot._wait_for_purchase_entry_result(timeout=0.2, poll_interval=0)
 
         assert result["state"] == "sku_page"
@@ -1614,22 +1574,21 @@ class TestPageStateHelpers:
             "buy_button_coords": (540, 2100),
         }
 
-        with (
-            patch.object(bot, "_select_price_option", return_value=True),
-            patch.object(bot, "_has_element", return_value=False),
+        with \
+            patch.object(bot, "_select_price_option", return_value=True), \
+            patch.object(bot, "_has_element", return_value=False), \
             patch.object(
                 bot, "_wait_for_submit_ready", side_effect=[False, True]
-            ) as wait_ready,
+            ) as wait_ready, \
             patch.object(
                 bot, "_click_sku_buy_button_element", return_value=True
-            ) as element_click,
-            patch.object(bot, "_burst_click_coordinates") as burst_click,
+            ) as element_click, \
+            patch.object(bot, "_burst_click_coordinates") as burst_click, \
             patch.object(
                 bot, "_ensure_attendees_selected_on_confirm_page", return_value=True
-            ),
-            patch("mobile.damai_app.time.sleep"),
-            patch("mobile.damai_app.time.time", side_effect=_make_time_monotonic()),
-        ):
+            ), \
+            patch("mobile.damai_app.time.sleep"), \
+            patch("mobile.damai_app.time.time", side_effect=_make_time_monotonic()):
             assert bot.run_ticket_grabbing(initial_page_probe=initial_probe) is True
 
         assert wait_ready.call_count == 2
@@ -1649,22 +1608,21 @@ class TestPageStateHelpers:
             checked_state["value"] = "true"
             return True
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: 'textContains("实名观演人")' in value,
-            ),
-            patch.object(bot, "_attendee_checkbox_elements", return_value=[checkbox]),
+            ), \
+            patch.object(bot, "_attendee_checkbox_elements", return_value=[checkbox]), \
             patch.object(
                 bot, "_attendee_required_count_on_confirm_page", return_value=1
-            ),
+            ), \
             patch.object(
                 bot,
                 "_select_attendee_checkbox_by_name",
                 side_effect=_select_side_effect,
-            ),
-        ):
+            ):
             assert bot._ensure_attendees_selected_on_confirm_page() is True
 
     def test_attendee_selected_count_falls_back_to_page_source(self, bot):
@@ -1685,14 +1643,13 @@ class TestPageStateHelpers:
         checkbox = Mock()
         checkbox.click = Mock()
 
-        with (
+        with \
             patch.object(
                 bot, "_click_element_center", side_effect=Exception("center failed")
-            ),
-            patch.object(bot, "_burst_click_element_center", return_value=None),
-            patch.object(bot, "_is_checkbox_selected", return_value=False),
-            patch.object(bot, "_attendee_selected_count", side_effect=[0, 1]),
-        ):
+            ), \
+            patch.object(bot, "_burst_click_element_center", return_value=None), \
+            patch.object(bot, "_is_checkbox_selected", return_value=False), \
+            patch.object(bot, "_attendee_selected_count", side_effect=[0, 1]):
             assert bot._click_attendee_checkbox(checkbox) is True
 
         checkbox.click.assert_called_once()
@@ -1709,13 +1666,12 @@ class TestPageStateHelpers:
                 return [checkbox]
             return []
 
-        with (
-            patch.object(bot, "_find_all", side_effect=_find_all_side_effect),
-            patch.object(bot, "_is_checkbox_selected", return_value=False),
+        with \
+            patch.object(bot, "_find_all", side_effect=_find_all_side_effect), \
+            patch.object(bot, "_is_checkbox_selected", return_value=False), \
             patch.object(
                 bot, "_click_attendee_checkbox", return_value=True
-            ) as click_checkbox,
-        ):
+            ) as click_checkbox:
             assert bot._select_attendee_checkbox_by_name("张志涛") is True
 
         assert any("contains(normalize-space(@text)" in xpath for xpath in seen_xpaths)
@@ -1724,14 +1680,13 @@ class TestPageStateHelpers:
     def test_ensure_attendees_selected_fails_when_section_visible_but_no_checkbox(
         self, bot
     ):
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: 'textContains("实名观演人")' in value,
-            ),
-            patch.object(bot, "_attendee_checkbox_elements", return_value=[]),
-        ):
+            ), \
+            patch.object(bot, "_attendee_checkbox_elements", return_value=[]):
             assert bot._ensure_attendees_selected_on_confirm_page() is False
 
     def test_ensure_attendees_polls_for_checkbox_in_rush_dev_mode(self, bot):
@@ -1754,13 +1709,12 @@ class TestPageStateHelpers:
                 return []
             return [checkbox1, checkbox2]
 
-        with (
+        with \
             patch.object(
                 bot, "_attendee_checkbox_elements", side_effect=_delayed_checkbox
-            ),
-            patch.object(bot, "_attendee_selected_count", return_value=0),
-            patch.object(bot, "_click_attendee_checkbox_fast", return_value=True),
-        ):
+            ), \
+            patch.object(bot, "_attendee_selected_count", return_value=0), \
+            patch.object(bot, "_click_attendee_checkbox_fast", return_value=True):
             assert (
                 bot._ensure_attendees_selected_on_confirm_page(
                     require_attendee_section=True
@@ -1804,12 +1758,12 @@ class TestPageStateHelpers:
                 return [card_a, card_b]
             return []
 
-        with (
-            patch.object(bot, "_find", return_value=price_container),
+        with \
+            patch.object(bot, "_find", return_value=price_container), \
             patch.object(
                 bot, "_container_find_elements", side_effect=fake_container_find
-            ),
-            patch.object(bot, "_is_clickable", return_value=True),
+            ), \
+            patch.object(bot, "_is_clickable", return_value=True), \
             patch.object(
                 bot,
                 "_collect_descendant_texts",
@@ -1818,8 +1772,7 @@ class TestPageStateHelpers:
                     if c is card_a
                     else ["看台", "380", "无票"]
                 ),
-            ),
-        ):
+            ):
             options = bot.get_visible_price_options()
 
         assert options == [
@@ -1841,16 +1794,14 @@ class TestPageStateHelpers:
 
     def test_purchase_bar_text_ready_distinguishes_reservation_from_purchase(self, bot):
         purchase_bar = Mock()
-        with (
-            patch.object(bot.driver, "find_element", return_value=purchase_bar),
-            patch.object(bot, "_collect_descendant_texts", return_value=["立即购买"]),
-        ):
+        with \
+            patch.object(bot.driver, "find_element", return_value=purchase_bar), \
+            patch.object(bot, "_collect_descendant_texts", return_value=["立即购买"]):
             assert bot._purchase_bar_text_ready() is True
 
-        with (
-            patch.object(bot.driver, "find_element", return_value=purchase_bar),
-            patch.object(bot, "_collect_descendant_texts", return_value=["抢票预约"]),
-        ):
+        with \
+            patch.object(bot.driver, "find_element", return_value=purchase_bar), \
+            patch.object(bot, "_collect_descendant_texts", return_value=["抢票预约"]):
             assert bot._purchase_bar_text_ready() is False
 
     def test_normalize_ocr_price_text(self, bot):
@@ -1900,11 +1851,10 @@ class TestPageStateHelpers:
                 return Mock(stdout=b"13803\n", stderr=b"", returncode=0)
             raise AssertionError(cmd)
 
-        with (
-            patch("mobile.price_selector._MAGICK_BIN", "magick"),
-            patch("mobile.price_selector._TESSERACT_BIN", "tesseract"),
-            patch("mobile.price_selector.subprocess.run", side_effect=fake_run) as run,
-        ):
+        with \
+            patch("mobile.price_selector._MAGICK_BIN", "magick"), \
+            patch("mobile.price_selector._TESSERACT_BIN", "tesseract"), \
+            patch("mobile.price_selector.subprocess.run", side_effect=fake_run) as run:
             result = bot._ocr_price_text_from_card("/tmp/sku.png", rect)
 
         assert result == "1380元"
@@ -1915,41 +1865,38 @@ class TestPageStateHelpers:
         assert first_tesseract_cmd[first_tesseract_cmd.index("--psm") + 1] == "13"
 
     def test_probe_current_page_detects_homepage(self, bot):
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: (
                     (by, value) == (By.ID, "cn.damai:id/homepage_header_search")
                 ),
-            ),
-            patch.object(bot, "_get_current_activity", return_value=""),
-        ):
+            ), \
+            patch.object(bot, "_get_current_activity", return_value=""):
             result = bot._probe_current_page_element_based()
 
             assert result["state"] == "homepage"
             assert result["purchase_button"] is False
 
     def test_probe_current_page_detects_homepage_by_activity(self, bot):
-        with (
-            patch.object(bot, "_has_element", return_value=False),
+        with \
+            patch.object(bot, "_has_element", return_value=False), \
             patch.object(
                 bot, "_get_current_activity", return_value=".homepage.MainActivity"
-            ),
-        ):
+            ):
             result = bot._probe_current_page_element_based()
 
             assert result["state"] == "homepage"
 
     def test_probe_current_page_detects_search_activity(self, bot):
-        with (
-            patch.object(bot, "_has_element", return_value=False),
+        with \
+            patch.object(bot, "_has_element", return_value=False), \
             patch.object(
                 bot,
                 "_get_current_activity",
                 return_value="com.alibaba.pictures.bricks.search.v2.SearchActivity",
-            ),
-        ):
+            ):
             result = bot._probe_current_page_element_based()
 
             assert result["state"] == "search_page"
@@ -1962,18 +1909,17 @@ class TestPageStateHelpers:
             (By.ID, "cn.damai:id/project_detail_price_layout"),
         }
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: (by, value) in present,
-            ),
+            ), \
             patch.object(
                 bot,
                 "_get_current_activity",
                 return_value=".trade.newtradeorder.ui.projectdetail.ui.activity.ProjectDetailActivity",
-            ),
-        ):
+            ):
             result = bot._probe_current_page_element_based()
 
             assert result["state"] == "detail_page"
@@ -1986,18 +1932,17 @@ class TestPageStateHelpers:
             (By.ID, "cn.damai:id/layout_sku"),
         }
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: (by, value) in present,
-            ),
+            ), \
             patch.object(
                 bot,
                 "_get_current_activity",
                 return_value=".commonbusiness.seatbiz.sku.qilin.ui.NcovSkuActivity",
-            ),
-        ):
+            ):
             result = bot._probe_current_page_element_based()
 
             assert result["state"] == "sku_page"
@@ -2011,18 +1956,17 @@ class TestPageStateHelpers:
             (ANDROID_UIAUTOMATOR, 'new UiSelector().text("预约想看场次")'),
         }
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: (by, value) in present,
-            ),
+            ), \
             patch.object(
                 bot,
                 "_get_current_activity",
                 return_value=".commonbusiness.seatbiz.sku.qilin.ui.NcovSkuActivity",
-            ),
-        ):
+            ):
             result = bot._probe_current_page_element_based()
 
             assert result["state"] == "sku_page"
@@ -2033,14 +1977,13 @@ class TestPageStateHelpers:
             (By.ID, "cn.damai:id/damai_theme_dialog_confirm_btn"),
         }
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: (by, value) in present,
-            ),
-            patch.object(bot, "_get_current_activity", return_value=""),
-        ):
+            ), \
+            patch.object(bot, "_get_current_activity", return_value=""):
             result = bot._probe_current_page_element_based()
 
         assert result["state"] == "pending_order_dialog"
@@ -2057,14 +2000,13 @@ class TestPageStateHelpers:
             (By.ID, "cn.damai:id/checkbox"),
         }
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: (by, value) in present,
-            ),
-            patch.object(bot, "_get_current_activity", return_value=""),
-        ):
+            ), \
+            patch.object(bot, "_get_current_activity", return_value=""):
             result = bot._probe_current_page_element_based()
 
             assert result["state"] == "order_confirm_page"
@@ -2083,15 +2025,14 @@ class TestPageStateHelpers:
             (ANDROID_UIAUTOMATOR, 'new UiSelector().text("下次再说")'),
         }
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: (by, value) in present,
-            ),
-            patch.object(bot, "ultra_fast_click", return_value=True) as fast_click,
-            patch("mobile.damai_app.time.sleep"),
-        ):
+            ), \
+            patch.object(bot, "ultra_fast_click", return_value=True) as fast_click, \
+            patch("mobile.damai_app.time.sleep"):
             result = bot.dismiss_startup_popups()
 
             assert result is True
@@ -2116,15 +2057,14 @@ class TestPageStateHelpers:
             (ANDROID_UIAUTOMATOR, 'new UiSelector().text("知道了")'),
         }
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: (by, value) in present,
-            ),
-            patch.object(bot, "ultra_fast_click", return_value=True) as fast_click,
-            patch("mobile.damai_app.time.sleep"),
-        ):
+            ), \
+            patch.object(bot, "ultra_fast_click", return_value=True) as fast_click, \
+            patch("mobile.damai_app.time.sleep"):
             assert bot._dismiss_fast_blocking_dialogs() is True
 
         fast_click.assert_any_call(
@@ -2145,22 +2085,20 @@ class TestPageStateHelpers:
 class TestRunWithRetry:
     def test_run_with_retry_success_first_attempt(self, bot):
         """Succeeds on first attempt, returns True immediately."""
-        with (
-            patch.object(bot, "run_ticket_grabbing", return_value=True),
-            patch("mobile.damai_app.time"),
-        ):
+        with \
+            patch.object(bot, "run_ticket_grabbing", return_value=True), \
+            patch("mobile.damai_app.time"):
             result = bot.run_with_retry(max_retries=3)
 
         assert result is True
 
     def test_run_with_retry_success_second_attempt(self, bot):
         """Fails once, sets up driver again, succeeds second time."""
-        with (
-            patch.object(bot, "run_ticket_grabbing", side_effect=[False, True]),
-            patch.object(bot, "_fast_retry_from_current_state", return_value=False),
-            patch.object(bot, "_setup_driver") as mock_setup,
-            patch("mobile.damai_app.time"),
-        ):
+        with \
+            patch.object(bot, "run_ticket_grabbing", side_effect=[False, True]), \
+            patch.object(bot, "_fast_retry_from_current_state", return_value=False), \
+            patch.object(bot, "_setup_driver") as mock_setup, \
+            patch("mobile.damai_app.time"):
             result = bot.run_with_retry(max_retries=3)
 
         assert result is True
@@ -2168,24 +2106,22 @@ class TestRunWithRetry:
 
     def test_run_with_retry_all_fail(self, bot):
         """All retries fail, returns False."""
-        with (
-            patch.object(bot, "run_ticket_grabbing", return_value=False),
-            patch.object(bot, "_fast_retry_from_current_state", return_value=False),
-            patch.object(bot, "_setup_driver"),
-            patch("mobile.damai_app.time"),
-        ):
+        with \
+            patch.object(bot, "run_ticket_grabbing", return_value=False), \
+            patch.object(bot, "_fast_retry_from_current_state", return_value=False), \
+            patch.object(bot, "_setup_driver"), \
+            patch("mobile.damai_app.time"):
             result = bot.run_with_retry(max_retries=3)
 
         assert result is False
 
     def test_run_with_retry_driver_quit_between_retries(self, bot):
         """Between retries, driver.quit and _setup_driver are called."""
-        with (
-            patch.object(bot, "run_ticket_grabbing", side_effect=[False, False, True]),
-            patch.object(bot, "_fast_retry_from_current_state", return_value=False),
-            patch.object(bot, "_setup_driver") as mock_setup,
-            patch("mobile.damai_app.time"),
-        ):
+        with \
+            patch.object(bot, "run_ticket_grabbing", side_effect=[False, False, True]), \
+            patch.object(bot, "_fast_retry_from_current_state", return_value=False), \
+            patch.object(bot, "_setup_driver") as mock_setup, \
+            patch("mobile.damai_app.time"):
             bot.run_with_retry(max_retries=3)
 
         # quit called before each retry (2 failures, but last one succeeds so only 2 quit calls)
@@ -2196,12 +2132,11 @@ class TestRunWithRetry:
         """driver.quit raises an exception, handled by except block."""
         bot.driver.quit.side_effect = Exception("quit failed")
 
-        with (
-            patch.object(bot, "run_ticket_grabbing", side_effect=[False, True]),
-            patch.object(bot, "_setup_driver") as mock_setup,
-            patch.object(bot, "_fast_retry_from_current_state", return_value=False),
-            patch("mobile.damai_app.time"),
-        ):
+        with \
+            patch.object(bot, "run_ticket_grabbing", side_effect=[False, True]), \
+            patch.object(bot, "_setup_driver") as mock_setup, \
+            patch.object(bot, "_fast_retry_from_current_state", return_value=False), \
+            patch("mobile.damai_app.time"):
             result = bot.run_with_retry(max_retries=3)
 
         # Despite quit failure, retry continued and succeeded
@@ -2209,14 +2144,13 @@ class TestRunWithRetry:
 
     def test_run_with_retry_uses_fast_retry(self, bot):
         """Verify fast retry is attempted before driver recreation."""
-        with (
-            patch.object(bot, "run_ticket_grabbing", side_effect=[False, False]),
+        with \
+            patch.object(bot, "run_ticket_grabbing", side_effect=[False, False]), \
             patch.object(
                 bot, "_fast_retry_from_current_state", return_value=False
-            ) as fast_retry,
-            patch.object(bot, "_setup_driver"),
-            patch("mobile.damai_app.time"),
-        ):
+            ) as fast_retry, \
+            patch.object(bot, "_setup_driver"), \
+            patch("mobile.damai_app.time"):
             bot.run_with_retry(max_retries=2)
 
         # fast_retry called fast_retry_count times per failed attempt
@@ -2224,14 +2158,13 @@ class TestRunWithRetry:
 
     def test_run_with_retry_first_fast_retry_has_no_extra_sleep(self, bot):
         """The first fast retry should execute immediately after a failed attempt."""
-        with (
-            patch.object(bot, "run_ticket_grabbing", return_value=False),
+        with \
+            patch.object(bot, "run_ticket_grabbing", return_value=False), \
             patch.object(
                 bot, "_fast_retry_from_current_state", side_effect=[False, True]
-            ),
-            patch.object(bot, "_setup_driver"),
-            patch("mobile.damai_app.time.sleep") as mock_sleep,
-        ):
+            ), \
+            patch.object(bot, "_setup_driver"), \
+            patch("mobile.damai_app.time.sleep") as mock_sleep:
             result = bot.run_with_retry(max_retries=1)
 
         assert result is True
@@ -2241,12 +2174,11 @@ class TestRunWithRetry:
         """Manual-start mode keeps the driver session instead of rebuilding it."""
         bot.config.auto_navigate = False
 
-        with (
-            patch.object(bot, "run_ticket_grabbing", side_effect=[False, False]),
-            patch.object(bot, "_fast_retry_from_current_state", return_value=False),
-            patch.object(bot, "_setup_driver") as mock_setup,
-            patch("mobile.damai_app.time"),
-        ):
+        with \
+            patch.object(bot, "run_ticket_grabbing", side_effect=[False, False]), \
+            patch.object(bot, "_fast_retry_from_current_state", return_value=False), \
+            patch.object(bot, "_setup_driver") as mock_setup, \
+            patch("mobile.damai_app.time"):
             result = bot.run_with_retry(max_retries=2)
 
         assert result is False
@@ -2258,11 +2190,10 @@ class TestRunWithRetry:
         bot.config.probe_only = True
         bot._last_run_outcome = "probe_ready"
 
-        with (
-            caplog.at_level("INFO", logger="mobile.damai_app"),
-            patch.object(bot, "run_ticket_grabbing", return_value=True),
-            patch("mobile.damai_app.time"),
-        ):
+        with \
+            caplog.at_level("INFO", logger="mobile.damai_app"), \
+            patch.object(bot, "run_ticket_grabbing", return_value=True), \
+            patch("mobile.damai_app.time"):
             result = bot.run_with_retry(max_retries=1)
 
         assert result is True
@@ -2274,11 +2205,10 @@ class TestRunWithRetry:
         bot.config.if_commit_order = False
         bot._last_run_outcome = "validation_ready"
 
-        with (
-            caplog.at_level("INFO", logger="mobile.damai_app"),
-            patch.object(bot, "run_ticket_grabbing", return_value=True),
-            patch("mobile.damai_app.time"),
-        ):
+        with \
+            caplog.at_level("INFO", logger="mobile.damai_app"), \
+            patch.object(bot, "run_ticket_grabbing", return_value=True), \
+            patch("mobile.damai_app.time"):
             result = bot.run_with_retry(max_retries=1)
 
         assert result is True
@@ -2288,11 +2218,10 @@ class TestRunWithRetry:
         """Actual order submission keeps the purchase-success wording."""
         bot._last_run_outcome = "order_submitted"
 
-        with (
-            caplog.at_level("INFO", logger="mobile.damai_app"),
-            patch.object(bot, "run_ticket_grabbing", return_value=True),
-            patch("mobile.damai_app.time"),
-        ):
+        with \
+            caplog.at_level("INFO", logger="mobile.damai_app"), \
+            patch.object(bot, "run_ticket_grabbing", return_value=True), \
+            patch("mobile.damai_app.time"):
             result = bot.run_with_retry(max_retries=1)
 
         assert result is True
@@ -2341,11 +2270,10 @@ class TestWaitForSaleStart:
             # During polling, return past the sale time
             return future_time + timedelta(seconds=1)
 
-        with (
-            patch("mobile.damai_app.datetime") as mock_dt,
-            patch("mobile.damai_app.time.sleep") as mock_sleep,
-            patch.object(bot, "_has_element", return_value=True),
-        ):
+        with \
+            patch("mobile.damai_app.datetime") as mock_dt, \
+            patch("mobile.damai_app.time.sleep") as mock_sleep, \
+            patch.object(bot, "_has_element", return_value=True):
             mock_dt.fromisoformat = datetime.fromisoformat
             mock_dt.now = mock_now
             bot.wait_for_sale_start()
@@ -2360,11 +2288,10 @@ class TestWaitForSaleStart:
         bot.config.sell_start_time = None
         bot.config.wait_cta_ready_timeout_ms = 5000
 
-        with (
-            patch("mobile.damai_app.logger") as mock_logger,
-            patch("mobile.damai_app.time.sleep") as mock_sleep,
-            patch.object(bot, "_is_sale_ready") as is_ready,
-        ):
+        with \
+            patch("mobile.damai_app.logger") as mock_logger, \
+            patch("mobile.damai_app.time.sleep") as mock_sleep, \
+            patch.object(bot, "_is_sale_ready") as is_ready:
             bot.wait_for_sale_start()
 
         is_ready.assert_not_called()
@@ -2379,18 +2306,17 @@ class TestWaitForSaleStart:
         bot.config.sell_start_time = None
         bot.config.wait_cta_ready_timeout_ms = 100
 
-        with (
-            patch("mobile.damai_app.logger"),
-            patch("mobile.damai_app.time.sleep") as mock_sleep,
-            patch.object(bot, "_is_sale_ready") as is_ready,
-        ):
+        with \
+            patch("mobile.damai_app.logger"), \
+            patch("mobile.damai_app.time.sleep") as mock_sleep, \
+            patch.object(bot, "_is_sale_ready") as is_ready:
             bot.wait_for_sale_start()
 
         is_ready.assert_not_called()
         mock_sleep.assert_not_called()
 
     def test_prepare_detail_page_hot_path_preselects_date_and_city(self, bot):
-        with (
+        with \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -2401,12 +2327,11 @@ class TestWaitForSaleStart:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "select_performance_date") as select_date,
+            ), \
+            patch.object(bot, "select_performance_date") as select_date, \
             patch.object(
                 bot, "_select_city_from_detail_page", return_value=True
-            ) as select_city,
-        ):
+            ) as select_city:
             result = bot._prepare_detail_page_hot_path()
 
         assert result is True
@@ -2414,11 +2339,10 @@ class TestWaitForSaleStart:
         select_city.assert_called_once_with(timeout=0.6)
 
     def test_prepare_detail_page_hot_path_returns_false_outside_detail_page(self, bot):
-        with (
-            patch.object(bot, "probe_current_page", return_value={"state": "homepage"}),
-            patch.object(bot, "select_performance_date") as select_date,
-            patch.object(bot, "_select_city_from_detail_page") as select_city,
-        ):
+        with \
+            patch.object(bot, "probe_current_page", return_value={"state": "homepage"}), \
+            patch.object(bot, "select_performance_date") as select_date, \
+            patch.object(bot, "_select_city_from_detail_page") as select_city:
             result = bot._prepare_detail_page_hot_path()
 
         assert result is False
@@ -2445,12 +2369,11 @@ class TestDetailPagePurchaseEntry:
         )
 
     def test_enter_purchase_flow_returns_none_when_city_selection_fails(self, bot):
-        with (
-            patch.object(bot, "select_performance_date") as select_date,
+        with \
+            patch.object(bot, "select_performance_date") as select_date, \
             patch.object(
                 bot, "_select_city_from_detail_page", return_value=False
-            ) as select_city,
-        ):
+            ) as select_city:
             result = bot._enter_purchase_flow_from_detail_page(prepared=False)
 
         assert result is None
@@ -2463,13 +2386,12 @@ class TestDetailPagePurchaseEntry:
         bot.config.rush_mode = True
         next_probe = {"state": "sku_page", "reservation_mode": False}
 
-        with (
-            patch.object(bot, "_cached_tap", return_value=False),
-            patch.object(bot, "smart_wait_and_click", return_value=True),
+        with \
+            patch.object(bot, "_cached_tap", return_value=False), \
+            patch.object(bot, "smart_wait_and_click", return_value=True), \
             patch.object(
                 bot, "_wait_for_purchase_entry_result", return_value=next_probe
-            ),
-        ):
+            ):
             result = bot._enter_purchase_flow_from_detail_page(prepared=False)
 
         assert result == next_probe
@@ -2478,12 +2400,11 @@ class TestDetailPagePurchaseEntry:
         bot.config.rush_mode = True
         next_probe = {"state": "sku_page", "reservation_mode": False}
 
-        with (
-            patch.object(bot, "_cached_tap", return_value=True) as cached_tap,
+        with \
+            patch.object(bot, "_cached_tap", return_value=True) as cached_tap, \
             patch.object(
                 bot, "_wait_for_purchase_entry_result", return_value=next_probe
-            ) as wait_result,
-        ):
+            ) as wait_result:
             result = bot._enter_purchase_flow_from_detail_page(prepared=True)
 
         assert result == next_probe
@@ -2493,13 +2414,12 @@ class TestDetailPagePurchaseEntry:
     def test_enter_purchase_flow_falls_back_to_book_selectors(self, bot):
         next_probe = {"state": "order_confirm_page", "submit_button": True}
 
-        with (
-            patch.object(bot, "ultra_fast_click", return_value=False),
-            patch.object(bot, "smart_wait_and_click", return_value=True) as smart_click,
+        with \
+            patch.object(bot, "ultra_fast_click", return_value=False), \
+            patch.object(bot, "smart_wait_and_click", return_value=True) as smart_click, \
             patch.object(
                 bot, "_wait_for_purchase_entry_result", return_value=next_probe
-            ) as wait_result,
-        ):
+            ) as wait_result:
             result = bot._enter_purchase_flow_from_detail_page(prepared=True)
 
         assert result == next_probe
@@ -2507,10 +2427,9 @@ class TestDetailPagePurchaseEntry:
         wait_result.assert_called_once_with(timeout=5, poll_interval=0.08)
 
     def test_enter_purchase_flow_returns_none_when_all_clicks_fail(self, bot):
-        with (
-            patch.object(bot, "ultra_fast_click", return_value=False),
-            patch.object(bot, "smart_wait_and_click", return_value=False),
-        ):
+        with \
+            patch.object(bot, "ultra_fast_click", return_value=False), \
+            patch.object(bot, "smart_wait_and_click", return_value=False):
             result = bot._enter_purchase_flow_from_detail_page(prepared=True)
 
         assert result is None
@@ -2525,10 +2444,9 @@ class TestSaleReadiness:
         self, bot
     ):
         purchase_bar = Mock()
-        with (
-            patch.object(bot.driver, "find_element", return_value=purchase_bar),
-            patch.object(bot, "_collect_descendant_texts", return_value=["", "   "]),
-        ):
+        with \
+            patch.object(bot.driver, "find_element", return_value=purchase_bar), \
+            patch.object(bot, "_collect_descendant_texts", return_value=["", "   "]):
             assert bot._purchase_bar_text_ready() is False
 
     def test_is_sale_ready_detects_ready_selector(self, bot):
@@ -2544,24 +2462,22 @@ class TestSaleReadiness:
     def test_is_sale_ready_uses_sku_mode_to_block_reservation(self, bot):
         present = {(By.ID, "cn.damai:id/project_detail_perform_price_flowlayout")}
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: (by, value) in present,
-            ),
-            patch.object(bot, "is_reservation_sku_mode", return_value=True),
-        ):
+            ), \
+            patch.object(bot, "is_reservation_sku_mode", return_value=True):
             assert bot._is_sale_ready() is False
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: (by, value) in present,
-            ),
-            patch.object(bot, "is_reservation_sku_mode", return_value=False),
-        ):
+            ), \
+            patch.object(bot, "is_reservation_sku_mode", return_value=False):
             assert bot._is_sale_ready() is True
 
     def test_is_sale_ready_uses_purchase_bar_text_when_detail_cta_present(self, bot):
@@ -2569,14 +2485,13 @@ class TestSaleReadiness:
             (By.ID, "cn.damai:id/trade_project_detail_purchase_status_bar_container_fl")
         }
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_has_element",
                 side_effect=lambda by, value: (by, value) in present,
-            ),
-            patch.object(bot, "_purchase_bar_text_ready", return_value=True),
-        ):
+            ), \
+            patch.object(bot, "_purchase_bar_text_ready", return_value=True):
             assert bot._is_sale_ready() is True
 
     def test_is_sale_ready_returns_false_without_any_signal(self, bot):
@@ -2608,13 +2523,12 @@ class TestFastRetry:
         }
         # First call from dismiss_startup_popups fallback returns unknown;
         # second call (in back-loop with fast=True) returns detail_page.
-        with (
+        with \
             patch.object(
                 bot, "probe_current_page", side_effect=[unknown_probe, detail_probe]
-            ),
-            patch.object(bot, "dismiss_startup_popups"),
-            patch("mobile.damai_app.time.sleep"),
-        ):
+            ), \
+            patch.object(bot, "dismiss_startup_popups"), \
+            patch("mobile.damai_app.time.sleep"):
             result = bot._recover_to_detail_page_for_local_retry(
                 initial_probe=unknown_probe
             )
@@ -2624,7 +2538,7 @@ class TestFastRetry:
 
     def test_fast_retry_from_detail_page(self, bot):
         """probe returns detail_page, re-runs full flow."""
-        with (
+        with \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -2635,9 +2549,8 @@ class TestFastRetry:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "run_ticket_grabbing", return_value=True) as run_tg,
-        ):
+            ), \
+            patch.object(bot, "run_ticket_grabbing", return_value=True) as run_tg:
             result = bot._fast_retry_from_current_state()
 
         assert result is True
@@ -2645,7 +2558,7 @@ class TestFastRetry:
 
     def test_fast_retry_from_order_confirm_page(self, bot):
         """probe returns order_confirm_page, re-attempts submit only."""
-        with (
+        with \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -2656,9 +2569,8 @@ class TestFastRetry:
                     "quantity_picker": False,
                     "submit_button": True,
                 },
-            ),
-            patch.object(bot, "smart_wait_and_click", return_value=True) as smart_click,
-        ):
+            ), \
+            patch.object(bot, "smart_wait_and_click", return_value=True) as smart_click:
             result = bot._fast_retry_from_current_state()
 
         assert result is True
@@ -2669,7 +2581,7 @@ class TestFastRetry:
     ):
         bot.config.if_commit_order = False
 
-        with (
+        with \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -2680,14 +2592,13 @@ class TestFastRetry:
                     "quantity_picker": False,
                     "submit_button": True,
                 },
-            ),
+            ), \
             patch.object(
                 bot, "_ensure_attendees_selected_on_confirm_page", return_value=True
-            ) as ensure_attendees,
+            ) as ensure_attendees, \
             patch.object(
                 bot, "smart_wait_for_element", return_value=True
-            ) as wait_element,
-        ):
+            ) as wait_element:
             result = bot._fast_retry_from_current_state()
 
         assert result is True
@@ -2715,7 +2626,7 @@ class TestFastRetry:
         bot.item_detail = _make_item_detail()
         bot.config.auto_navigate = True
 
-        with (
+        with \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -2726,13 +2637,12 @@ class TestFastRetry:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "_current_page_matches_target", return_value=False),
+            ), \
+            patch.object(bot, "_current_page_matches_target", return_value=False), \
             patch.object(
                 bot, "navigate_to_target_event", return_value=True
-            ) as navigate,
-            patch.object(bot, "run_ticket_grabbing", return_value=True) as run_tg,
-        ):
+            ) as navigate, \
+            patch.object(bot, "run_ticket_grabbing", return_value=True) as run_tg:
             result = bot._fast_retry_from_current_state()
 
         assert result is True
@@ -2743,7 +2653,7 @@ class TestFastRetry:
         bot.item_detail = _make_item_detail()
         bot.config.auto_navigate = False
 
-        with (
+        with \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -2754,11 +2664,10 @@ class TestFastRetry:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "_current_page_matches_target", return_value=False),
-            patch.object(bot, "navigate_to_target_event") as navigate,
-            patch.object(bot, "run_ticket_grabbing") as run_tg,
-        ):
+            ), \
+            patch.object(bot, "_current_page_matches_target", return_value=False), \
+            patch.object(bot, "navigate_to_target_event") as navigate, \
+            patch.object(bot, "run_ticket_grabbing") as run_tg:
             result = bot._fast_retry_from_current_state()
 
         assert result is False
@@ -2769,7 +2678,7 @@ class TestFastRetry:
         """Manual-start retry recovers locally before re-running the flow."""
         bot.config.auto_navigate = False
 
-        with (
+        with \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -2780,7 +2689,7 @@ class TestFastRetry:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
+            ), \
             patch.object(
                 bot,
                 "_recover_to_detail_page_for_local_retry",
@@ -2791,10 +2700,9 @@ class TestFastRetry:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ) as recover_local,
-            patch.object(bot, "run_ticket_grabbing", return_value=False) as run_tg,
-            patch("mobile.damai_app.time.sleep"),
-        ):
+            ) as recover_local, \
+            patch.object(bot, "run_ticket_grabbing", return_value=False) as run_tg, \
+            patch("mobile.damai_app.time.sleep"):
             result = bot._fast_retry_from_current_state()
 
         recover_local.assert_called_once()
@@ -2805,7 +2713,7 @@ class TestFastRetry:
         """Manual-start retry stops if it cannot recover to a detail/sku page."""
         bot.config.auto_navigate = False
 
-        with (
+        with \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -2816,7 +2724,7 @@ class TestFastRetry:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
+            ), \
             patch.object(
                 bot,
                 "_recover_to_detail_page_for_local_retry",
@@ -2827,9 +2735,8 @@ class TestFastRetry:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ) as recover_local,
-            patch.object(bot, "run_ticket_grabbing") as run_tg,
-        ):
+            ) as recover_local, \
+            patch.object(bot, "run_ticket_grabbing") as run_tg:
             result = bot._fast_retry_from_current_state()
 
         recover_local.assert_called_once()
@@ -2839,7 +2746,7 @@ class TestFastRetry:
     def test_fast_retry_from_unknown_uses_auto_navigation_when_enabled(self, bot):
         bot.config.auto_navigate = True
 
-        with (
+        with \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -2850,12 +2757,11 @@ class TestFastRetry:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
+            ), \
             patch.object(
                 bot, "navigate_to_target_event", return_value=True
-            ) as navigate,
-            patch.object(bot, "run_ticket_grabbing", return_value=True) as run_tg,
-        ):
+            ) as navigate, \
+            patch.object(bot, "run_ticket_grabbing", return_value=True) as run_tg:
             result = bot._fast_retry_from_current_state()
 
         assert result is True
@@ -2871,14 +2777,13 @@ class TestFastRetry:
 class TestVerifyOrderResult:
     def test_verify_order_success_payment_activity(self, bot):
         """Activity contains 'Pay', returns 'success'."""
-        with (
+        with \
             patch.object(
                 bot,
                 "_get_current_activity",
                 return_value="com.alipay.android.app.PayActivity",
-            ),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.1)
             result = bot.verify_order_result(timeout=5)
 
@@ -2890,11 +2795,10 @@ class TestVerifyOrderResult:
         def has_element_side_effect(by, value):
             return "立即支付" in value
 
-        with (
-            patch.object(bot, "_get_current_activity", return_value="SomeActivity"),
-            patch.object(bot, "_has_element", side_effect=has_element_side_effect),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+        with \
+            patch.object(bot, "_get_current_activity", return_value="SomeActivity"), \
+            patch.object(bot, "_has_element", side_effect=has_element_side_effect), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.1)
             result = bot.verify_order_result(timeout=5)
 
@@ -2908,12 +2812,11 @@ class TestVerifyOrderResult:
             # Simulate a page containing generic "支付" wording but no payment CTA.
             return 'textContains("支付")' in value and "未支付" not in value
 
-        with (
-            patch.object(bot, "_get_current_activity", return_value="SomeActivity"),
-            patch.object(bot, "_has_element", side_effect=has_element_side_effect),
-            patch("mobile.damai_app.time.time", side_effect=time_values),
-            patch("mobile.damai_app.time.sleep"),
-        ):
+        with \
+            patch.object(bot, "_get_current_activity", return_value="SomeActivity"), \
+            patch.object(bot, "_has_element", side_effect=has_element_side_effect), \
+            patch("mobile.damai_app.time.time", side_effect=time_values), \
+            patch("mobile.damai_app.time.sleep"):
             result = bot.verify_order_result(timeout=1)
 
         assert result == "timeout"
@@ -2943,12 +2846,11 @@ class TestVerifyOrderResult:
                 return True
             return False
 
-        with (
-            patch.object(bot, "_get_current_activity", return_value="SomeActivity"),
-            patch.object(bot, "_has_element", side_effect=has_element_side_effect),
-            patch("mobile.damai_app.time.time", side_effect=time_values),
-            patch("mobile.damai_app.time.sleep"),
-        ):
+        with \
+            patch.object(bot, "_get_current_activity", return_value="SomeActivity"), \
+            patch.object(bot, "_has_element", side_effect=has_element_side_effect), \
+            patch("mobile.damai_app.time.time", side_effect=time_values), \
+            patch("mobile.damai_app.time.sleep"):
             result = bot.verify_order_result(timeout=1)
 
         assert result == "timeout"
@@ -2959,11 +2861,10 @@ class TestVerifyOrderResult:
         def has_element_side_effect(by, value):
             return "已售罄" in value
 
-        with (
-            patch.object(bot, "_get_current_activity", return_value="SomeActivity"),
-            patch.object(bot, "_has_element", side_effect=has_element_side_effect),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+        with \
+            patch.object(bot, "_get_current_activity", return_value="SomeActivity"), \
+            patch.object(bot, "_has_element", side_effect=has_element_side_effect), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.1)
             result = bot.verify_order_result(timeout=5)
 
@@ -2978,11 +2879,10 @@ class TestVerifyOrderResult:
             # Return increasing time so we exceed timeout quickly
             return call_count[0] * 3.0
 
-        with (
-            patch.object(bot, "_get_current_activity", return_value="SomeActivity"),
-            patch.object(bot, "_has_element", return_value=False),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+        with \
+            patch.object(bot, "_get_current_activity", return_value="SomeActivity"), \
+            patch.object(bot, "_has_element", return_value=False), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time = mock_time_func
             mock_time.sleep = Mock()
             result = bot.verify_order_result(timeout=5)
@@ -3002,11 +2902,10 @@ class TestVerifyOrderResult:
                 return True
             return False
 
-        with (
-            patch.object(bot, "_get_current_activity", return_value="SomeActivity"),
-            patch.object(bot, "_has_element", side_effect=has_element_side_effect),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+        with \
+            patch.object(bot, "_get_current_activity", return_value="SomeActivity"), \
+            patch.object(bot, "_has_element", side_effect=has_element_side_effect), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.1)
             result = bot.verify_order_result(timeout=5)
 
@@ -3026,11 +2925,10 @@ class TestVerifyOrderResult:
                 return True
             return False
 
-        with (
-            patch.object(bot, "_get_current_activity", return_value="SomeActivity"),
-            patch.object(bot, "_has_element", side_effect=has_element_side_effect),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+        with \
+            patch.object(bot, "_get_current_activity", return_value="SomeActivity"), \
+            patch.object(bot, "_has_element", side_effect=has_element_side_effect), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 0.1)
             result = bot.verify_order_result(timeout=5)
 
@@ -3045,10 +2943,9 @@ class TestVerifyOrderResult:
 class TestSelectPerformanceDate:
     def test_select_performance_date_found(self, bot, caplog):
         """Date text found and clicked successfully."""
-        with (
-            caplog.at_level("INFO", logger="mobile.damai_app"),
-            patch.object(bot, "ultra_fast_click", return_value=True) as ufc,
-        ):
+        with \
+            caplog.at_level("INFO", logger="mobile.damai_app"), \
+            patch.object(bot, "ultra_fast_click", return_value=True) as ufc:
             bot.select_performance_date()
 
         ufc.assert_called_once_with(
@@ -3060,10 +2957,9 @@ class TestSelectPerformanceDate:
 
     def test_select_performance_date_not_found(self, bot, caplog):
         """Date not found, continues gracefully without error."""
-        with (
-            caplog.at_level("DEBUG", logger="mobile.damai_app"),
-            patch.object(bot, "ultra_fast_click", return_value=False) as ufc,
-        ):
+        with \
+            caplog.at_level("DEBUG", logger="mobile.damai_app"), \
+            patch.object(bot, "ultra_fast_click", return_value=False) as ufc:
             bot.select_performance_date()
 
         ufc.assert_called_once()
@@ -3086,26 +2982,24 @@ class TestSelectPerformanceDate:
 class TestCheckSessionValid:
     def test_check_session_valid_logged_in(self, bot):
         """No login indicators, returns True."""
-        with (
+        with \
             patch.object(
                 bot, "_get_current_activity", return_value="ProjectDetailActivity"
-            ),
-            patch.object(bot, "_has_element", return_value=False),
-        ):
+            ), \
+            patch.object(bot, "_has_element", return_value=False):
             result = bot.check_session_valid()
 
         assert result is True
 
     def test_check_session_valid_login_activity(self, bot, caplog):
         """LoginActivity detected, returns False."""
-        with (
-            caplog.at_level("ERROR", logger="mobile.damai_app"),
+        with \
+            caplog.at_level("ERROR", logger="mobile.damai_app"), \
             patch.object(
                 bot,
                 "_get_current_activity",
                 return_value="com.taobao.login.LoginActivity",
-            ),
-        ):
+            ):
             result = bot.check_session_valid()
 
         assert result is False
@@ -3113,12 +3007,11 @@ class TestCheckSessionValid:
 
     def test_check_session_valid_sign_activity(self, bot, caplog):
         """SignActivity detected, returns False."""
-        with (
-            caplog.at_level("ERROR", logger="mobile.damai_app"),
+        with \
+            caplog.at_level("ERROR", logger="mobile.damai_app"), \
             patch.object(
                 bot, "_get_current_activity", return_value="com.taobao.SignActivity"
-            ),
-        ):
+            ):
             result = bot.check_session_valid()
 
         assert result is False
@@ -3130,11 +3023,10 @@ class TestCheckSessionValid:
         def has_element_side_effect(by, value):
             return "请先登录" in value
 
-        with (
-            caplog.at_level("ERROR", logger="mobile.damai_app"),
-            patch.object(bot, "_get_current_activity", return_value="SomeActivity"),
-            patch.object(bot, "_has_element", side_effect=has_element_side_effect),
-        ):
+        with \
+            caplog.at_level("ERROR", logger="mobile.damai_app"), \
+            patch.object(bot, "_get_current_activity", return_value="SomeActivity"), \
+            patch.object(bot, "_has_element", side_effect=has_element_side_effect):
             result = bot.check_session_valid()
 
         assert result is False
@@ -3143,10 +3035,9 @@ class TestCheckSessionValid:
 
 class TestSkuInspectionHelpers:
     def test_dismiss_startup_popups_returns_false_when_nothing_is_clickable(self, bot):
-        with (
-            patch.object(bot, "_has_element", return_value=False),
-            patch.object(bot, "ultra_fast_click") as fast_click,
-        ):
+        with \
+            patch.object(bot, "_has_element", return_value=False), \
+            patch.object(bot, "ultra_fast_click") as fast_click:
             assert bot.dismiss_startup_popups() is False
 
         fast_click.assert_not_called()
@@ -3201,12 +3092,11 @@ class TestSkuInspectionHelpers:
     def test_ensure_sku_page_for_inspection_enters_sku_from_detail_page(self, bot):
         next_probe = {"state": "sku_page", "reservation_mode": False}
 
-        with (
-            patch.object(bot, "smart_wait_and_click", return_value=True) as smart_click,
+        with \
+            patch.object(bot, "smart_wait_and_click", return_value=True) as smart_click, \
             patch.object(
                 bot, "_wait_for_purchase_entry_result", return_value=next_probe
-            ) as wait_entry,
-        ):
+            ) as wait_entry:
             result = bot.ensure_sku_page_for_inspection({"state": "detail_page"})
 
         assert result == next_probe
@@ -3214,12 +3104,11 @@ class TestSkuInspectionHelpers:
         wait_entry.assert_called_once_with(timeout=5, poll_interval=0.04)
 
     def test_ensure_sku_page_for_inspection_returns_probe_when_click_fails(self, bot):
-        with (
-            patch.object(bot, "smart_wait_and_click", return_value=False),
+        with \
+            patch.object(bot, "smart_wait_and_click", return_value=False), \
             patch.object(
                 bot, "probe_current_page", return_value={"state": "detail_page"}
-            ) as probe,
-        ):
+            ) as probe:
             result = bot.ensure_sku_page_for_inspection({"state": "detail_page"})
 
         assert result == {"state": "detail_page"}
@@ -3229,23 +3118,22 @@ class TestSkuInspectionHelpers:
         sku_probe = {"state": "sku_page", "reservation_mode": True}
         prices = [{"index": 5, "text": "看台 899元", "tag": "可选", "source": "ui"}]
 
-        with (
-            patch.object(bot, "smart_wait_and_click", return_value=True),
-            patch.object(bot, "_dump_hierarchy_xml", return_value=None),
+        with \
+            patch.object(bot, "smart_wait_and_click", return_value=True), \
+            patch.object(bot, "_dump_hierarchy_xml", return_value=None), \
             patch.object(
                 bot, "_wait_for_purchase_entry_result", return_value=sku_probe
-            ),
+            ), \
             patch.object(
                 bot, "_get_detail_title_text", side_effect=["", "马思唯上海站"]
-            ),
+            ), \
             patch.object(
                 bot,
                 "_get_detail_venue_text",
                 side_effect=["", "上海市 · 浦发银行东方体育中心"],
-            ),
-            patch.object(bot, "get_visible_date_options", return_value=["04.04"]),
-            patch.object(bot, "get_visible_price_options", return_value=prices),
-        ):
+            ), \
+            patch.object(bot, "get_visible_date_options", return_value=["04.04"]), \
+            patch.object(bot, "get_visible_price_options", return_value=prices):
             summary = bot.inspect_current_target_event({"state": "detail_page"})
 
         assert summary == {
@@ -3258,21 +3146,20 @@ class TestSkuInspectionHelpers:
         }
 
     def test_inspect_current_target_event_skips_price_reads_outside_sku_page(self, bot):
-        with (
-            patch.object(bot, "smart_wait_and_click", return_value=True),
-            patch.object(bot, "_dump_hierarchy_xml", return_value=None),
+        with \
+            patch.object(bot, "smart_wait_and_click", return_value=True), \
+            patch.object(bot, "_dump_hierarchy_xml", return_value=None), \
             patch.object(
                 bot,
                 "_wait_for_purchase_entry_result",
                 return_value={"state": "detail_page"},
-            ),
-            patch.object(bot, "_get_detail_title_text", return_value="马思唯上海站"),
+            ), \
+            patch.object(bot, "_get_detail_title_text", return_value="马思唯上海站"), \
             patch.object(
                 bot, "_get_detail_venue_text", return_value="浦发银行东方体育中心"
-            ),
-            patch.object(bot, "get_visible_date_options") as get_dates,
-            patch.object(bot, "get_visible_price_options") as get_prices,
-        ):
+            ), \
+            patch.object(bot, "get_visible_date_options") as get_dates, \
+            patch.object(bot, "get_visible_price_options") as get_prices:
             summary = bot.inspect_current_target_event({"state": "detail_page"})
 
         assert summary["state"] == "detail_page"
@@ -3287,11 +3174,10 @@ class TestSkuInspectionHelpers:
         def has_element_side_effect(by, value):
             return "登录/注册" in value
 
-        with (
-            caplog.at_level("ERROR", logger="mobile.damai_app"),
-            patch.object(bot, "_get_current_activity", return_value="SomeActivity"),
-            patch.object(bot, "_has_element", side_effect=has_element_side_effect),
-        ):
+        with \
+            caplog.at_level("ERROR", logger="mobile.damai_app"), \
+            patch.object(bot, "_get_current_activity", return_value="SomeActivity"), \
+            patch.object(bot, "_has_element", side_effect=has_element_side_effect):
             result = bot.check_session_valid()
 
         assert result is False
@@ -3460,14 +3346,13 @@ class TestXmlHierarchyHelpers:
         bot.d.dump_hierarchy = Mock(return_value="<hierarchy><node/></hierarchy>")
         sku_probe = {"state": "sku_page", "reservation_mode": False}
 
-        with (
-            patch.object(bot, "probe_current_page", return_value=sku_probe),
-            patch.object(bot, "ensure_sku_page_for_inspection", return_value=sku_probe),
-            patch.object(bot, "_get_detail_title_text", return_value="演唱会"),
-            patch.object(bot, "_get_detail_venue_text", return_value="场馆"),
-            patch.object(bot, "get_visible_date_options", return_value=["04.06"]),
-            patch.object(bot, "get_visible_price_options", return_value=[]),
-        ):
+        with \
+            patch.object(bot, "probe_current_page", return_value=sku_probe), \
+            patch.object(bot, "ensure_sku_page_for_inspection", return_value=sku_probe), \
+            patch.object(bot, "_get_detail_title_text", return_value="演唱会"), \
+            patch.object(bot, "_get_detail_venue_text", return_value="场馆"), \
+            patch.object(bot, "get_visible_date_options", return_value=["04.06"]), \
+            patch.object(bot, "get_visible_price_options", return_value=[]):
             bot.inspect_current_target_event()
 
         # Hierarchy should only be dumped once (no re-dump since page didn't navigate).
@@ -3486,12 +3371,11 @@ class TestPriceSelection:
         bot.config.rush_mode = True
         bot.config.price_index = 5
 
-        with (
+        with \
             patch.object(
                 bot, "_click_price_option_by_config_index", return_value=True
-            ) as click_index,
-            patch.object(bot, "get_visible_price_options") as get_visible,
-        ):
+            ) as click_index, \
+            patch.object(bot, "get_visible_price_options") as get_visible:
             result = bot._select_price_option_fast()
 
         assert result is True
@@ -3501,12 +3385,11 @@ class TestPriceSelection:
     def test_select_price_option_fast_rush_mode_uses_cached_coordinates(self, bot):
         bot.config.rush_mode = True
 
-        with (
+        with \
             patch.object(
                 bot, "_click_price_option_by_config_index", return_value=True
-            ) as click_index,
-            patch.object(bot, "get_visible_price_options") as get_visible,
-        ):
+            ) as click_index, \
+            patch.object(bot, "get_visible_price_options") as get_visible:
             result = bot._select_price_option_fast(cached_coords=(240, 1560))
 
         assert result is True
@@ -3517,18 +3400,17 @@ class TestPriceSelection:
         bot.config.price = "899元"
         bot.config.price_index = 5
 
-        with (
+        with \
             patch.object(
                 bot,
                 "get_visible_price_options",
                 return_value=[
                     {"index": 5, "text": "", "tag": "", "source": "ui"},
                 ],
-            ) as get_visible,
+            ) as get_visible, \
             patch.object(
                 bot, "_click_visible_price_option", return_value=True
-            ) as click_visible,
-        ):
+            ) as click_visible:
             result = bot._select_price_option_fast()
 
         assert result is True
@@ -3536,14 +3418,13 @@ class TestPriceSelection:
         click_visible.assert_called_once_with(5)
 
     def test_click_price_option_by_config_index_bursts_clicks_in_rush_mode(self, bot):
-        with (
+        with \
             patch.object(
                 bot,
                 "_get_price_option_coordinates_by_config_index",
                 return_value=(260, 1540),
-            ),
-            patch.object(bot, "_burst_click_coordinates") as burst_click,
-        ):
+            ), \
+            patch.object(bot, "_burst_click_coordinates") as burst_click:
             result = bot._click_price_option_by_config_index(burst=True)
 
         assert result is True
@@ -3557,13 +3438,12 @@ class TestPriceSelection:
         bot.config.price = "899元"
         bot.config.price_index = 5
 
-        with (
-            patch.object(bot, "get_visible_price_options", return_value=[]),
+        with \
+            patch.object(bot, "get_visible_price_options", return_value=[]), \
             patch.object(
                 bot, "_click_price_option_by_config_index", return_value=True
-            ) as click_index,
-            patch.object(bot, "ultra_fast_click", return_value=False),
-        ):
+            ) as click_index, \
+            patch.object(bot, "ultra_fast_click", return_value=False):
             result = bot._select_price_option_fast()
 
         assert result is True
@@ -3573,7 +3453,7 @@ class TestPriceSelection:
         bot.config.price = "899元"
         bot.config.price_index = 5
 
-        with (
+        with \
             patch.object(
                 bot,
                 "get_visible_price_options",
@@ -3581,12 +3461,11 @@ class TestPriceSelection:
                     {"index": 0, "text": "看台699元", "tag": "", "source": "ocr"},
                     {"index": 5, "text": "看台899元", "tag": "", "source": "ocr"},
                 ],
-            ),
+            ), \
             patch.object(
                 bot, "_click_visible_price_option", return_value=True
-            ) as click_visible,
-            patch.object(bot, "ultra_fast_click") as fast_click,
-        ):
+            ) as click_visible, \
+            patch.object(bot, "ultra_fast_click") as fast_click:
             result = bot._select_price_option()
 
         assert result is True
@@ -3597,7 +3476,7 @@ class TestPriceSelection:
         bot.config.price = "899元"
         bot.config.price_index = 5
 
-        with (
+        with \
             patch.object(
                 bot,
                 "get_visible_price_options",
@@ -3609,10 +3488,9 @@ class TestPriceSelection:
                         "source": "ocr",
                     },
                 ],
-            ),
-            patch.object(bot, "_click_visible_price_option") as click_visible,
-            patch.object(bot, "ultra_fast_click") as fast_click,
-        ):
+            ), \
+            patch.object(bot, "_click_visible_price_option") as click_visible, \
+            patch.object(bot, "ultra_fast_click") as fast_click:
             result = bot._select_price_option()
 
         assert result is False
@@ -3626,13 +3504,12 @@ class TestPriceSelection:
             (By.XPATH, '//*[contains(@text,"提交")]'),
         ]
 
-        with (
-            patch.object(bot, "ultra_fast_click", side_effect=[True, True]),
-            patch.object(bot, "smart_wait_and_click", return_value=False),
+        with \
+            patch.object(bot, "ultra_fast_click", side_effect=[True, True]), \
+            patch.object(bot, "smart_wait_and_click", return_value=False), \
             patch.object(
                 bot, "verify_order_result", side_effect=["timeout", "success"]
-            ) as verify_result,
-        ):
+            ) as verify_result:
             result = bot._submit_order_fast(submit_selectors)
 
         assert result == "success"
@@ -3645,13 +3522,12 @@ class TestPriceSelection:
             (By.XPATH, '//*[contains(@text,"提交")]'),
         ]
 
-        with (
-            patch.object(bot, "ultra_fast_click", side_effect=[True, False, False]),
-            patch.object(bot, "smart_wait_and_click", return_value=False),
+        with \
+            patch.object(bot, "ultra_fast_click", side_effect=[True, False, False]), \
+            patch.object(bot, "smart_wait_and_click", return_value=False), \
             patch.object(
                 bot, "verify_order_result", side_effect=["timeout", "existing_order"]
-            ) as verify_result,
-        ):
+            ) as verify_result:
             result = bot._submit_order_fast(submit_selectors)
 
         assert result == "existing_order"
@@ -3659,9 +3535,9 @@ class TestPriceSelection:
 
     def test_price_selection_text_match_success(self, bot):
         """Text-based price match works, index fallback not used."""
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
-            patch.object(bot, "check_session_valid", return_value=True),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
+            patch.object(bot, "check_session_valid", return_value=True), \
             patch.object(
                 bot,
                 "probe_current_page",
@@ -3672,9 +3548,9 @@ class TestPriceSelection:
                     "quantity_picker": False,
                     "submit_button": False,
                 },
-            ),
-            patch.object(bot, "wait_for_sale_start"),
-            patch.object(bot, "select_performance_date"),
+            ), \
+            patch.object(bot, "wait_for_sale_start"), \
+            patch.object(bot, "select_performance_date"), \
             patch.object(
                 bot,
                 "_enter_purchase_flow_from_detail_page",
@@ -3683,14 +3559,13 @@ class TestPriceSelection:
                     "price_container": True,
                     "reservation_mode": False,
                 },
-            ),
-            patch.object(bot, "_wait_for_submit_ready", return_value=True),
-            patch.object(bot, "smart_wait_and_click", return_value=True),
-            patch.object(bot, "ultra_fast_click", return_value=True) as ufc,
-            patch.object(bot, "ultra_batch_click"),
-            patch.object(bot, "_submit_order_fast", return_value="success"),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "_wait_for_submit_ready", return_value=True), \
+            patch.object(bot, "smart_wait_and_click", return_value=True), \
+            patch.object(bot, "ultra_fast_click", return_value=True) as ufc, \
+            patch.object(bot, "ultra_batch_click"), \
+            patch.object(bot, "_submit_order_fast", return_value="success"), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time.side_effect = _make_time_side_effect(0.0, 1.5)
             bot.driver.find_elements.return_value = []
 
@@ -3721,10 +3596,10 @@ class TestPriceSelection:
         _price_logger = _logging.getLogger("mobile.price_selector")
         _price_logger.propagate = True
         try:
-            with (
-                caplog.at_level("INFO"),
-                patch.object(bot, "dismiss_startup_popups"),
-                patch.object(bot, "check_session_valid", return_value=True),
+            with \
+                caplog.at_level("INFO"), \
+                patch.object(bot, "dismiss_startup_popups"), \
+                patch.object(bot, "check_session_valid", return_value=True), \
                 patch.object(
                     bot,
                     "probe_current_page",
@@ -3735,9 +3610,9 @@ class TestPriceSelection:
                         "quantity_picker": False,
                         "submit_button": False,
                     },
-                ),
-                patch.object(bot, "wait_for_sale_start"),
-                patch.object(bot, "select_performance_date"),
+                ), \
+                patch.object(bot, "wait_for_sale_start"), \
+                patch.object(bot, "select_performance_date"), \
                 patch.object(
                     bot,
                     "_enter_purchase_flow_from_detail_page",
@@ -3746,37 +3621,35 @@ class TestPriceSelection:
                         "price_container": True,
                         "reservation_mode": False,
                     },
-                ),
-                patch.object(bot, "_wait_for_submit_ready", return_value=True),
-                patch.object(bot, "smart_wait_and_click", return_value=True),
+                ), \
+                patch.object(bot, "_wait_for_submit_ready", return_value=True), \
+                patch.object(bot, "smart_wait_and_click", return_value=True), \
                 patch.object(
                     bot, "ultra_fast_click", side_effect=ultra_fast_click_side_effect
-                ),
-                patch.object(bot, "ultra_batch_click"),
-                patch.object(bot, "_submit_order_fast", return_value="success"),
-                patch("mobile.damai_app.time") as mock_time,
-            ):
+                ), \
+                patch.object(bot, "ultra_batch_click"), \
+                patch.object(bot, "_submit_order_fast", return_value="success"), \
+                patch("mobile.damai_app.time") as mock_time:
                 mock_time.time.side_effect = _make_time_side_effect(0.0, 1.5)
                 # Mock price container for index-based fallback
                 mock_target = _make_mock_element()
-                with (
+                with \
                     patch.object(
                         bot._price_sel, "_click_price_card_element", return_value=False
-                    ),
-                    patch.object(bot, "_find", return_value=Mock()),
+                    ), \
+                    patch.object(bot, "_find", return_value=Mock()), \
                     patch.object(
                         bot,
                         "_container_find_elements",
                         return_value=[mock_target, mock_target],
-                    ),
-                    patch.object(bot, "_is_clickable", return_value=True),
-                    patch.object(bot, "_click_element_center"),
+                    ), \
+                    patch.object(bot, "_is_clickable", return_value=True), \
+                    patch.object(bot, "_click_element_center"), \
                     patch.object(
                         bot,
                         "_ensure_attendees_selected_on_confirm_page",
                         return_value=True,
-                    ),
-                ):
+                    ):
                     result = bot.run_ticket_grabbing()
         finally:
             _price_logger.propagate = False
@@ -4016,24 +3889,22 @@ class TestSmartWaitForElement:
 
 class TestWaitForPageState:
     def test_returns_last_probe_on_timeout(self, bot):
-        with (
+        with \
             patch.object(
                 bot, "probe_current_page", return_value={"state": "unknown_state"}
-            ),
-            patch("mobile.damai_app.time.time", side_effect=[0.0, 10.0, 20.0]),
-            patch("mobile.damai_app.time.sleep"),
-        ):
+            ), \
+            patch("mobile.damai_app.time.time", side_effect=[0.0, 10.0, 20.0]), \
+            patch("mobile.damai_app.time.sleep"):
             result = bot.wait_for_page_state({"order_confirm_page"}, timeout=5)
         assert result["state"] == "unknown_state"
 
     def test_returns_immediately_on_matching_state(self, bot):
-        with (
+        with \
             patch.object(
                 bot, "probe_current_page", return_value={"state": "detail_page"}
-            ),
-            patch("mobile.damai_app.time.time", side_effect=[0.0, 1.0]),
-            patch("mobile.damai_app.time.sleep"),
-        ):
+            ), \
+            patch("mobile.damai_app.time.time", side_effect=[0.0, 1.0]), \
+            patch("mobile.damai_app.time.sleep"):
             result = bot.wait_for_page_state({"detail_page"})
         assert result["state"] == "detail_page"
 
@@ -4088,19 +3959,18 @@ class TestWarmValidationPipeline:
         if hasattr(bot, "_pipeline"):
             bot._pipeline._device = mock_d
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_wait_for_purchase_entry_result",
                 return_value={"state": "sku_page"},
-            ),
-            patch.object(bot, "_click_price_option_by_config_index") as price_click,
-            patch.object(bot, "_click_sku_buy_button_element") as buy_click,
-            patch.object(bot, "_click_coordinates") as click_coords,
+            ), \
+            patch.object(bot, "_click_price_option_by_config_index") as price_click, \
+            patch.object(bot, "_click_sku_buy_button_element") as buy_click, \
+            patch.object(bot, "_click_coordinates") as click_coords, \
             patch.object(
                 bot._pipeline, "_confirm_page_ready", side_effect=[False, True]
-            ),
-        ):
+            ):
             result = bot._run_warm_validation_pipeline(start_time=_time_module.time())
 
         assert result is True
@@ -4136,19 +4006,18 @@ class TestWarmValidationPipeline:
         if hasattr(bot, "_pipeline"):
             bot._pipeline._device = mock_d
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_wait_for_purchase_entry_result",
                 return_value={"state": "sku_page"},
-            ),
-            patch.object(bot, "_click_price_option_by_config_index") as price_click,
-            patch.object(bot, "_click_sku_buy_button_element") as buy_click,
-            patch.object(bot, "_click_coordinates"),
+            ), \
+            patch.object(bot, "_click_price_option_by_config_index") as price_click, \
+            patch.object(bot, "_click_sku_buy_button_element") as buy_click, \
+            patch.object(bot, "_click_coordinates"), \
             patch.object(
                 bot._pipeline, "_confirm_page_ready", side_effect=[False, True]
-            ),
-        ):
+            ):
             result = bot._run_warm_validation_pipeline(start_time=_time_module.time())
 
         assert result is True
@@ -4174,17 +4043,16 @@ class TestWarmValidationPipeline:
         if hasattr(bot, "_pipeline"):
             bot._pipeline._device = mock_d
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_wait_for_purchase_entry_result",
                 return_value={"state": "sku_page"},
-            ),
-            patch.object(bot, "_click_price_option_by_config_index", return_value=True),
-            patch.object(bot, "_click_sku_buy_button_element", return_value=True),
-            patch.object(bot._pipeline, "_confirm_page_ready", side_effect=False),
-            patch("mobile.damai_app.time") as mock_time,
-        ):
+            ), \
+            patch.object(bot, "_click_price_option_by_config_index", return_value=True), \
+            patch.object(bot, "_click_sku_buy_button_element", return_value=True), \
+            patch.object(bot._pipeline, "_confirm_page_ready", side_effect=False), \
+            patch("mobile.damai_app.time") as mock_time:
             mock_time.time = Mock(side_effect=[100.0, 100.0, 109.0])
             mock_time.sleep = Mock()
             result = bot._run_warm_validation_pipeline(start_time=100.0)
@@ -4206,24 +4074,23 @@ class TestWarmValidationPipeline:
         if hasattr(bot, "_pipeline"):
             bot._pipeline._device = mock_d
 
-        with (
+        with \
             patch.object(
                 bot,
                 "_wait_for_purchase_entry_result",
                 side_effect=[None, {"state": "sku_page"}],
-            ),
+            ), \
             patch.object(
                 bot._pipeline, "_shell_price_and_buy_until_confirm", return_value=False
-            ),
-            patch.object(bot, "_click_price_option_by_config_index", return_value=True),
+            ), \
+            patch.object(bot, "_click_price_option_by_config_index", return_value=True), \
             patch.object(
                 bot, "_click_sku_buy_button_element", return_value=True
-            ) as buy_click,
-            patch.object(bot, "_click_coordinates") as click_coords,
+            ) as buy_click, \
+            patch.object(bot, "_click_coordinates") as click_coords, \
             patch.object(
                 bot._pipeline, "_confirm_page_ready", side_effect=[False, True]
-            ),
-        ):
+            ):
             result = bot._run_warm_validation_pipeline(start_time=_time_module.time())
 
         assert result is True
@@ -4255,12 +4122,11 @@ class TestWarmValidationPipeline:
         # Don't populate coords
         initial_probe = {"state": "detail_page", "purchase_button": True}
 
-        with (
-            patch.object(bot, "_run_warm_validation_pipeline") as pipeline,
+        with \
+            patch.object(bot, "_run_warm_validation_pipeline") as pipeline, \
             patch.object(
                 bot, "_enter_purchase_flow_from_detail_page", return_value=None
-            ),
-        ):
+            ):
             result = bot.run_ticket_grabbing(initial_page_probe=initial_probe)
 
         pipeline.assert_not_called()  # _has_warm_pipeline_coords returned False
@@ -4288,15 +4154,14 @@ class TestRecoverToDetailPage:
         }
         # First probe_current_page call (after dismiss_startup_popups) returns order_confirm;
         # second call (in back-loop with fast=True) returns detail_page.
-        with (
-            patch.object(bot, "dismiss_startup_popups"),
+        with \
+            patch.object(bot, "dismiss_startup_popups"), \
             patch.object(
                 bot,
                 "probe_current_page",
                 side_effect=[{"state": "order_confirm_page"}, detail_result],
-            ) as probe_mock,
-            patch.object(bot, "_press_keycode_safe", return_value=True),
-        ):
+            ) as probe_mock, \
+            patch.object(bot, "_press_keycode_safe", return_value=True):
             result = bot._recover_to_detail_page_for_local_retry(initial_probe)
         assert result["state"] == "detail_page"
         # Second call should be fast=True (back-loop)
@@ -4356,12 +4221,11 @@ class TestRushPreSelectViaXml:
         bot.driver = mock_d
         if hasattr(bot, "_pipeline"):
             bot._pipeline._device = mock_d
-        with (
-            patch.object(bot, "_dismiss_fast_blocking_dialogs", return_value=False),
+        with \
+            patch.object(bot, "_dismiss_fast_blocking_dialogs", return_value=False), \
             patch.object(
                 bot, "_dump_hierarchy_xml", return_value=ET.fromstring(self.DETAIL_XML)
-            ),
-        ):
+            ):
             result = bot._rush_preselect_and_buy_via_xml()
 
         assert result is True
@@ -4385,14 +4249,13 @@ class TestRushPreSelectViaXml:
 
         mock_d = Mock()
         bot.d = mock_d
-        with (
-            patch.object(bot, "_dismiss_fast_blocking_dialogs", return_value=False),
+        with \
+            patch.object(bot, "_dismiss_fast_blocking_dialogs", return_value=False), \
             patch.object(
                 bot,
                 "_dump_hierarchy_xml",
                 return_value=ET.fromstring(self.DETAIL_XML_NO_CITY),
-            ),
-        ):
+            ):
             result = bot._rush_preselect_and_buy_via_xml()
 
         assert result is True
@@ -4411,12 +4274,11 @@ class TestRushPreSelectViaXml:
 
         mock_d = Mock()
         bot.d = mock_d
-        with (
-            patch.object(bot, "_dismiss_fast_blocking_dialogs", return_value=False),
+        with \
+            patch.object(bot, "_dismiss_fast_blocking_dialogs", return_value=False), \
             patch.object(
                 bot, "_dump_hierarchy_xml", return_value=ET.fromstring(no_buy_xml)
-            ),
-        ):
+            ):
             result = bot._rush_preselect_and_buy_via_xml()
 
         assert result is False
@@ -4442,14 +4304,13 @@ class TestRushPreSelectViaXml:
             "price_container": True,
             "reservation_mode": False,
         }
-        with (
+        with \
             patch.object(
                 bot, "_rush_preselect_and_buy_via_xml", return_value=True
-            ) as xml_method,
+            ) as xml_method, \
             patch.object(
                 bot, "_wait_for_purchase_entry_result", return_value=next_probe
-            ),
-        ):
+            ):
             result = bot._enter_purchase_flow_from_detail_page(prepared=False)
 
         assert result == next_probe
@@ -4465,13 +4326,12 @@ class TestRushPreSelectViaXml:
             "price_container": True,
             "reservation_mode": False,
         }
-        with (
-            patch.object(bot, "_rush_preselect_and_buy_via_xml") as xml_method,
-            patch.object(bot, "_cached_tap", return_value=True),
+        with \
+            patch.object(bot, "_rush_preselect_and_buy_via_xml") as xml_method, \
+            patch.object(bot, "_cached_tap", return_value=True), \
             patch.object(
                 bot, "_wait_for_purchase_entry_result", return_value=next_probe
-            ),
-        ):
+            ):
             result = bot._enter_purchase_flow_from_detail_page(prepared=False)
 
         xml_method.assert_not_called()  # warm path, skip XML dump
