@@ -40,7 +40,6 @@ htmlcov/
 # Real config files (use *.example as template)
 mobile/config.jsonc
 mobile/config.local.jsonc
-web/config.local.json
 
 # Local debug artifacts
 tmp/

@@ -11,15 +11,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-# Add project root + web/ to sys.path.
-# web/ is added for bare imports inside web modules (from config import Config, from concert import Concert).
+# Add project root to sys.path.
 # mobile/ is NOT added — use mobile.config / mobile.damai_app to avoid Config name clash.
 _project_root = Path(__file__).parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
-_web_dir = str(_project_root / "web")
-if _web_dir not in sys.path:
-    sys.path.insert(0, _web_dir)
 
 # Preserve the real uiautomator2.exceptions module before mocking the package,
 # so ``from uiautomator2.exceptions import ConnectError`` still resolves.
@@ -55,24 +51,6 @@ def mock_config() -> dict:
         "retry_times": 3,
         "timeout": 30,
     }
-
-
-@pytest.fixture
-def mock_selenium_driver():
-    """Mock Selenium WebDriver for unit tests."""
-    with patch("selenium.webdriver.Chrome") as mock_driver_class:
-        mock_driver = Mock()
-        mock_driver_class.return_value = mock_driver
-
-        # Common WebDriver methods
-        mock_driver.get = Mock()
-        mock_driver.find_element = Mock()
-        mock_driver.find_elements = Mock()
-        mock_driver.quit = Mock()
-        mock_driver.current_url = "https://example.com"
-        mock_driver.title = "Test Page"
-
-        yield mock_driver
 
 
 @pytest.fixture
@@ -134,7 +112,6 @@ def reset_environment(monkeypatch):
     env_vars_to_clear = [
         "DAMAI_USERNAME",
         "DAMAI_PASSWORD",
-        "SELENIUM_DRIVER_PATH",
     ]
 
     for var in env_vars_to_clear:
@@ -176,27 +153,6 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture
-def web_config():
-    """Create a real web Config instance for testing."""
-    from config import Config as WebConfig
-
-    return WebConfig(
-        index_url="https://www.damai.cn/",
-        login_url="https://passport.damai.cn/login",
-        target_url="https://detail.damai.cn/item.htm?id=123",
-        users=["UserA", "UserB"],
-        city="杭州",
-        dates=["2026-04-11"],
-        prices=["680"],
-        if_listen=True,
-        if_commit_order=True,
-        max_retries=3,
-        fast_mode=True,
-        page_load_delay=0.1,
-    )
-
-
-@pytest.fixture
 def mobile_config():
     """Create a real mobile Config instance for testing."""
     from mobile.config import Config as MobileConfig
@@ -213,19 +169,6 @@ def mobile_config():
 
 
 @pytest.fixture
-def mock_concert(web_config, mock_selenium_driver):
-    """Create a Concert instance with mocked WebDriver."""
-    with \
-        patch("concert.get_chromedriver_path", return_value="/fake/chromedriver"), \
-        patch("concert.webdriver.Chrome", return_value=mock_selenium_driver), \
-        patch("concert.Service"):
-        from concert import Concert
-
-        concert = Concert(web_config)
-        yield concert
-
-
-@pytest.fixture
 def mock_damai_bot(mobile_config, mock_u2_driver):
     """Create a DamaiBot instance with mocked u2 driver."""
     mock_u2_driver.update_settings = Mock()
@@ -233,40 +176,14 @@ def mock_damai_bot(mobile_config, mock_u2_driver):
     mock_u2_driver.find_element = Mock()
     mock_u2_driver.find_elements = Mock(return_value=[])
 
-    with \
-        patch("mobile.damai_app.Config.load_config", return_value=mobile_config), \
-        patch("uiautomator2.connect", return_value=mock_u2_driver):
+    with (
+        patch("mobile.damai_app.Config.load_config", return_value=mobile_config),
+        patch("uiautomator2.connect", return_value=mock_u2_driver),
+    ):
         from mobile.damai_app import DamaiBot
 
         bot = DamaiBot()
         yield bot
-
-
-@pytest.fixture
-def mock_web_config_file(tmp_path):
-    """Create a temporary web config.json file."""
-
-    def create(content=None):
-        if content is None:
-            content = {
-                "index_url": "https://www.damai.cn/",
-                "login_url": "https://passport.damai.cn/login",
-                "target_url": "https://detail.damai.cn/item.htm?id=123",
-                "users": ["UserA", "UserB"],
-                "city": "杭州",
-                "dates": ["2026-04-11"],
-                "prices": ["680"],
-                "if_listen": True,
-                "if_commit_order": True,
-                "max_retries": 3,
-            }
-        config_path = tmp_path / "config.json"
-        config_path.write_text(
-            json.dumps(content, ensure_ascii=False), encoding="utf-8"
-        )
-        return config_path
-
-    return create
 
 
 @pytest.fixture

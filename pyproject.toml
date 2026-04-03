@@ -5,7 +5,6 @@ description = "Automated ticket purchasing system for Damai.com"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
 packages = [
-    { include = "web" },
     { include = "mobile" },
     { include = "shared" }
 ]
@@ -39,7 +38,6 @@ addopts = [
     "-ra",
     "--strict-markers",
     "--strict-config",
-    "--cov=web",
     "--cov=mobile",
     "--cov-branch",
     "--cov-report=term-missing:skip-covered",
@@ -54,13 +52,11 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["web", "mobile"]
+source = ["mobile"]
 omit = [
     "*/tests/*",
     "*/__init__.py",
     "*/conftest.py",
-    "web/quick_diagnosis.py",
-    "web/logger.py",
 ]
 
 [tool.coverage.report]
