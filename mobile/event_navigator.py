@@ -281,20 +281,72 @@ class EventNavigator:
                 "搜索结果扫描并打开目标",
                 manual_baseline_seconds=_MANUAL_STEP_BASELINES.get("搜索结果扫描并打开目标")):
             for scroll_index in range(max_scrolls + 1):
+                # ✅ 保留你原有的卡片查找：ll_search_item 已经包含两种结构，完全正确
                 result_cards = bot._find_all(By.ID, "cn.damai:id/ll_search_item")
+
                 best_match = None
                 best_score = -1
 
+                logger.info(result_cards)
+                logger.info(f"总共: {len(result_cards)} 条")
                 for card in result_cards:
+                    # ===================== 标题获取（兼容两种结构，原代码逻辑正确） =====================
+                    # 单场卡片：tv_project_name | 巡演卡片：tv_project_tourName
                     title_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_name")
+                    title_tour_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_tourName")
+                    
+                    # ===================== 核心兼容：判断卡片类型，获取对应字段 =====================
+                    # 判定规则：存在 tv_project_tourName → 巡演卡片；否则 → 单场卡片
+                    is_tour_card = len(title_tour_text.strip()) > 0
+
+                    logger.info(f"卡片类型: {'巡演' if is_tour_card else '单场'}")
+
+                    logger.info(f"巡演标题: {title_tour_text}， 单场标题: {title_text}")
+                    if title_tour_text:
+                        title_text = title_tour_text
                     if not title_text:
                         continue
 
-                    venue_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_venueName")
-                    city_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_city").replace("|", "").strip()
-                    time_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_time")
+                    if is_tour_card:
+                        # 🎤 【巡演卡片】邓紫棋结构：取内部城市、时间，无场馆
+                        city_texts = bot._safe_element_texts(card, By.ID, "cn.damai:id/tv_city")
+                        logger.info(f"city_texts: {city_texts}")
+                        cleaned_city_texts = []
+                        seen_city = set()
+                        for text in city_texts:
+                            cleaned = (text or "").replace("|", "").strip()
+                            if cleaned and cleaned not in seen_city:
+                                cleaned_city_texts.append(cleaned)
+                                seen_city.add(cleaned)
+
+                        target_city = normalize_text(city_keyword(self._config.city))
+                        chosen_city = ""
+                        if target_city:
+                            for text in cleaned_city_texts:
+                                normalized = normalize_text(text)
+                                if not normalized:
+                                    continue
+                                if target_city in normalized or normalized in target_city:
+                                    chosen_city = text
+                                    break
+
+                        if chosen_city:
+                            city_text = chosen_city
+                        else:
+                            city_text = " / ".join(cleaned_city_texts) if cleaned_city_texts else ""
+                        time_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_time").strip()
+                        venue_text = ""  # 巡演列表页无具体场馆
+                    else:
+                        # 🎫 【单场卡片】脱口秀结构：原逻辑不变
+                        venue_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_venueName").strip()
+                        city_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_city").replace("|", "").strip()
+                        time_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_time").strip()
+
+                    logger.info(f"场馆: {venue_text}， 城市: {city_text} ，时间: {time_text}")
+                    # 评分逻辑完全保留
                     score = bot._score_search_result(title_text, venue_text)
 
+                    # 去重收集完全保留
                     normalized_title = normalize_text(title_text)
                     if normalized_title and normalized_title not in seen_titles:
                         collected.append({
@@ -303,13 +355,16 @@ class EventNavigator:
                             "city": city_text,
                             "time": time_text,
                             "score": score,
+                            "card_type": "巡演" if is_tour_card else "单场"  # 可选：方便调试
                         })
                         seen_titles.add(normalized_title)
 
+                    # 最佳匹配逻辑完全保留
                     if score > best_score:
                         best_score = score
                         best_match = card
 
+                # ===================== 点击、返回、滚动逻辑 100% 保留 =====================
                 if best_match is not None and best_score >= 60:
                     bot._click_element_center(best_match)
                     detail_probe = bot.wait_for_page_state({"detail_page", "sku_page"}, timeout=5.5)

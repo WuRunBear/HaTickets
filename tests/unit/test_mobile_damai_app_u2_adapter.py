@@ -287,7 +287,7 @@ class TestU2SearchHotPath:
              patch.object(
                  bot,
                  "_safe_element_text",
-                 side_effect=["张杰演唱会", "鸟巢", "北京", "04.06"],
+                 side_effect=["张杰演唱会", "", "鸟巢", "北京", "04.06"],
              ), \
              patch.object(bot, "_score_search_result", return_value=90), \
              patch.object(bot, "_click_element_center"), \
@@ -305,7 +305,7 @@ class TestU2SearchHotPath:
              patch.object(
                  bot,
                  "_safe_element_text",
-                 side_effect=["相关演出", "未知场馆", "北京", "04.06"],
+                 side_effect=["相关演出", "", "未知场馆", "北京", "04.06"],
              ), \
              patch.object(bot, "_score_search_result", return_value=10):
             result = bot._open_target_from_search_results(max_scrolls=0, return_details=True)
@@ -321,7 +321,7 @@ class TestU2SearchHotPath:
              patch.object(
                  bot,
                  "_safe_element_text",
-                 side_effect=["陈慧娴演唱会", "梅奔", "上海", "06.06"],
+                 side_effect=["陈慧娴演唱会", "", "梅奔", "上海", "06.06"],
              ), \
              patch.object(bot, "_score_search_result", return_value=90), \
              patch.object(bot, "_click_element_center"), \
@@ -334,6 +334,25 @@ class TestU2SearchHotPath:
 
         assert result["opened"] is False
         dismiss.assert_called_once()
+
+    def test_open_target_from_search_results_tour_card_city_joins_multiple(self):
+        bot = DamaiBot(config=_u2_config(), setup_driver=False)
+        card = Mock()
+        with patch.object(bot, "_find_all", return_value=[card]), \
+             patch.object(
+                 bot,
+                 "_safe_element_text",
+                 side_effect=["张杰演唱会", "邓紫棋 I AM GLORIA", "07.01"],
+             ), \
+             patch.object(bot, "_safe_element_texts", return_value=["上海|", "北京|"]), \
+             patch.object(bot, "_score_search_result", return_value=90), \
+             patch.object(bot, "_click_element_center"), \
+             patch.object(bot, "wait_for_page_state", return_value={"state": "detail_page"}), \
+             patch.object(bot, "_current_page_matches_target", return_value=True):
+            result = bot._open_target_from_search_results(max_scrolls=0, return_details=True)
+
+        assert result["opened"] is True
+        assert result["search_results"][0]["city"] == "上海 / 北京"
 
 
 class TestDiscoverKeywordRetryNavigation:

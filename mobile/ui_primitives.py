@@ -416,13 +416,18 @@ class UIPrimitives:
                 return []
 
         if by == By.ID:
+            results = []
             container_elem = getattr(container, "elem", None)
             if container_elem is not None and hasattr(container_elem, "iter"):
                 try:
-                    return [node for node in container_elem.iter() if node.get("resource-id") == value]
+                    for node in container_elem.iter():
+                        if "cn.damai:id/tv_city" == value:
+                            logger.info(f"results1.1.1: {node.get('resource-id')}")
+                        if node.get("resource-id") == value:
+                            results.append(node)
+                    return results
                 except Exception:
                     pass
-            results = []
             for index in range(24):
                 child = container.child(resourceId=value, instance=index)
                 if not self._selector_exists(child):
@@ -484,7 +489,7 @@ class UIPrimitives:
             elements = self._container_find_elements(container, by, value)
         except Exception:
             return []
-
+        logger.info(f"elements: {elements}")
         texts = []
         seen = set()
         for element in elements:
