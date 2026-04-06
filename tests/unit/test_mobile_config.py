@@ -1,6 +1,7 @@
 """Unit tests for mobile/config.py"""
 import json
 import os
+import re
 
 import pytest
 
@@ -222,7 +223,8 @@ class TestMobileConfigNewFields:
 class TestMobileConfigLoadConfig:
 
     def test_load_config_dict_from_missing_path_raises(self, tmp_path):
-        with pytest.raises(FileNotFoundError, match=f"配置文件未找到: {tmp_path / 'missing.jsonc'}"):
+        expected_message = f"配置文件未找到: {tmp_path / 'missing.jsonc'}"
+        with pytest.raises(FileNotFoundError, match=re.escape(expected_message)):
             _load_config_dict_from_path(tmp_path / "missing.jsonc")
 
     def test_resolve_existing_config_path_uses_default_config(self, tmp_path, monkeypatch):
