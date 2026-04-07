@@ -112,6 +112,26 @@ def update_runtime_mode(probe_only, if_commit_order, config_path=None):
     }
 
 
+def runtime_mode_flags_from_key(mode_key):
+    if mode_key == "probe":
+        return True, False
+    if mode_key == "validation":
+        return False, False
+    if mode_key == "submit":
+        return False, True
+    raise ValueError(f"未知运行模式: {mode_key!r}")
+
+
+def runtime_mode_key_from_dict(config_dict):
+    probe_only = bool(config_dict.get("probe_only", False))
+    if probe_only:
+        return "probe"
+    if_commit_order = bool(config_dict.get("if_commit_order", False))
+    if not if_commit_order:
+        return "validation"
+    return "submit"
+
+
 class Config:
     def __init__(self, keyword, users, city, date, price, price_index, if_commit_order,
                  probe_only=False,

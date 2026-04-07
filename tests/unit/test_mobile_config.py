@@ -2,6 +2,8 @@
 import json
 import os
 import re
+import sys
+import types
 
 import pytest
 
@@ -12,6 +14,8 @@ from mobile.config import (
     _resolve_writable_config_path,
     _strip_jsonc_comments,
     load_config_dict,
+    runtime_mode_flags_from_key,
+    runtime_mode_key_from_dict,
     save_config_dict,
     update_runtime_mode,
 )
@@ -409,6 +413,19 @@ class TestMobileConfigLoadConfig:
         assert loaded["probe_only"] is False
         assert loaded["if_commit_order"] is True
 
+    def test_runtime_mode_flags_from_key(self):
+        assert runtime_mode_flags_from_key("probe") == (True, False)
+        assert runtime_mode_flags_from_key("validation") == (False, False)
+        assert runtime_mode_flags_from_key("submit") == (False, True)
+        with pytest.raises(ValueError, match="未知运行模式"):
+            runtime_mode_flags_from_key("unknown")
+
+    def test_runtime_mode_key_from_dict(self):
+        assert runtime_mode_key_from_dict({"probe_only": True, "if_commit_order": True}) == "probe"
+        assert runtime_mode_key_from_dict({"probe_only": False, "if_commit_order": False}) == "validation"
+        assert runtime_mode_key_from_dict({"probe_only": False, "if_commit_order": True}) == "submit"
+        assert runtime_mode_key_from_dict({}) == "validation"
+
     def test_load_config_reads_rush_mode(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         config_data = {
@@ -563,3 +580,151 @@ class TestUncoveredBranches:
         (tmp_path / "config.jsonc").write_text(json.dumps(source))
         with pytest.raises(KeyError, match="keyword"):
             Config.load_config()
+
+
+def test_gui_smoke_load_and_apply_mode(monkeypatch, tmp_path):
+    from mobile import gui as gui_module
+
+    gui_module._repo_root()
+
+    mobile_dir = tmp_path / "mobile"
+    mobile_dir.mkdir()
+    template_path = mobile_dir / "config.example.jsonc"
+    template_path.write_text(
+        json.dumps(
+            {
+                "serial": None,
+                "app_package": "cn.damai",
+                "app_activity": ".launcher.splash.SplashMainActivity",
+                "keyword": "test",
+                "users": ["张三"],
+                "city": "北京",
+                "date": "01.01",
+                "price": "100元",
+                "price_index": 0,
+                "if_commit_order": False,
+                "probe_only": True,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    config_path = mobile_dir / "config.jsonc"
+    monkeypatch.setattr(gui_module, "_repo_root", lambda: tmp_path)
+
+    created_buttons = []
+    editor_ref = {}
+
+    class DummyVar:
+        def __init__(self, value=""):
+            self._value = value
+
+        def get(self):
+            return self._value
+
+        def set(self, value):
+            self._value = value
+
+    class DummyTk:
+        def title(self, *_args, **_kwargs):
+            return None
+
+        def geometry(self, *_args, **_kwargs):
+            return None
+
+        def after(self, _ms, fn):
+            fn()
+
+        def mainloop(self):
+            return None
+
+    class DummyWidget:
+        def __init__(self, *_args, **kwargs):
+            self.command = kwargs.get("command")
+            self.text = kwargs.get("text")
+            self.textvariable = kwargs.get("textvariable")
+            self.state = kwargs.get("state")
+            if self.text in {"选择", "载入", "保存", "应用模式并保存", "启动"}:
+                created_buttons.append(self)
+
+        def pack(self, *_args, **_kwargs):
+            return None
+
+        def configure(self, **kwargs):
+            if "command" in kwargs:
+                self.command = kwargs["command"]
+            if "state" in kwargs:
+                self.state = kwargs["state"]
+
+    class DummyScrolledText(DummyWidget):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+            self._text = ""
+            editor_ref["obj"] = self
+
+        def delete(self, *_args, **_kwargs):
+            self._text = ""
+
+        def insert(self, _index, text):
+            self._text = self._text + text
+
+        def get(self, *_args, **_kwargs):
+            return self._text
+
+    tkinter_mod = types.ModuleType("tkinter")
+    tkinter_mod.Tk = DummyTk
+    tkinter_mod.StringVar = DummyVar
+
+    ttk_mod = types.ModuleType("tkinter.ttk")
+    ttk_mod.Frame = DummyWidget
+    ttk_mod.Label = DummyWidget
+    ttk_mod.Entry = DummyWidget
+    ttk_mod.Button = DummyWidget
+    ttk_mod.Combobox = DummyWidget
+    tkinter_mod.ttk = ttk_mod
+
+    filedialog_mod = types.ModuleType("tkinter.filedialog")
+    filedialog_mod.askopenfilename = lambda **_kwargs: str(mobile_dir / "config.other.jsonc")
+    tkinter_mod.filedialog = filedialog_mod
+
+    messagebox_mod = types.ModuleType("tkinter.messagebox")
+    messagebox_mod.showerror = lambda *_args, **_kwargs: None
+    tkinter_mod.messagebox = messagebox_mod
+
+    scrolledtext_mod = types.ModuleType("tkinter.scrolledtext")
+    scrolledtext_mod.ScrolledText = DummyScrolledText
+
+    monkeypatch.setitem(sys.modules, "tkinter", tkinter_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.ttk", ttk_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.filedialog", filedialog_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.messagebox", messagebox_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.scrolledtext", scrolledtext_mod)
+
+    gui_module.run_gui()
+
+    assert config_path.exists()
+    apply_buttons = [b for b in created_buttons if b.text == "应用模式并保存"]
+    assert apply_buttons
+    assert callable(apply_buttons[0].command)
+    apply_buttons[0].command()
+
+    loaded = json.loads(config_path.read_text(encoding="utf-8"))
+    assert loaded["probe_only"] is True
+    assert loaded["if_commit_order"] is False
+
+    choose_buttons = [b for b in created_buttons if b.text == "选择"]
+    assert choose_buttons and callable(choose_buttons[0].command)
+    choose_buttons[0].command()
+    assert (mobile_dir / "config.other.jsonc").exists()
+
+    start_buttons = [b for b in created_buttons if b.text == "启动"]
+    assert start_buttons and callable(start_buttons[0].command)
+    monkeypatch.setattr(gui_module, "_write_text", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("no write")))
+    start_buttons[0].command()
+
+    editor = editor_ref["obj"]
+    editor._text = "{invalid json"
+    apply_buttons[0].command()

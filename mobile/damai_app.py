@@ -1548,17 +1548,19 @@ class DamaiBot(UIPrimitives):
                     return False
 
             if self.config.probe_only:
-                page_probe = self.probe_current_page()
                 detail_ready = (
-                    page_probe["state"] == "detail_page"
-                    and page_probe["purchase_button"]
-                    and page_probe["price_container"]
+                    page_probe.get("state") == "detail_page"
+                    and page_probe.get("purchase_button", False)
+                    and page_probe.get("price_container", False)
                 )
                 sku_ready = (
-                    page_probe["state"] == "sku_page" and page_probe["price_container"]
+                    page_probe.get("state") == "sku_page"
+                    and page_probe.get("price_container", False)
                 )
 
-                logger.info(f"详情页关键控件: {page_probe['purchase_button']} 详情页关键控件: {page_probe['price_container']}")
+                logger.info(
+                    f"详情页关键控件: {page_probe.get('purchase_button', False)} 详情页关键控件: {page_probe.get('price_container', False)}"
+                )
                 logger.info(f"1 详情页关键控件: {detail_ready} SKU页关键控件: {sku_ready}")
                 if detail_ready or sku_ready:
                     self._set_run_outcome("probe_ready")
@@ -1908,17 +1910,53 @@ class DamaiBot(UIPrimitives):
         return False
 
 
-# 使用示例
-if __name__ == "__main__":
+def main(argv=None):
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="damai_app")
+    parser.add_argument("--gui", action="store_true", help="打开配置与运行模式界面")
+    parser.add_argument("--config", default=None, help="显式指定配置文件路径")
+    parser.add_argument(
+        "--mode",
+        choices=("probe", "validation", "submit"),
+        default=None,
+        help="临时覆盖运行模式（不写回配置文件）",
+    )
+    args = parser.parse_args(argv)
+
+    if args.gui:
+        try:
+            from mobile.gui import run_gui
+        except ImportError:
+            from gui import run_gui
+        run_gui(args.config)
+        return 0
+
     bot = None
     try:
-        bot = DamaiBot()
+        config = Config.load_config(args.config)
+        if args.mode:
+            try:
+                from mobile.config import runtime_mode_flags_from_key
+            except ImportError:
+                from config import runtime_mode_flags_from_key
+            probe_only, if_commit_order = runtime_mode_flags_from_key(args.mode)
+            config.probe_only = probe_only
+            config.if_commit_order = if_commit_order
+
+        bot = DamaiBot(config=config, setup_driver=True)
         bot.run_with_retry(max_retries=3)
+        return 0
     except (ValueError, RuntimeError) as exc:
         logger.error(str(exc))
+        return 1
     finally:
         try:
             if bot and bot.driver:
                 bot.driver.quit()
         except Exception:
             pass
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
