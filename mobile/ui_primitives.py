@@ -10,6 +10,8 @@ etc. calls continue to work transparently via inheritance.
 
 import re
 import time
+import os
+from datetime import datetime
 import xml.etree.ElementTree as ET
 
 from selenium.webdriver.common.by import By
@@ -679,6 +681,37 @@ class UIPrimitives:
             return ET.fromstring(self.d.dump_hierarchy())
         except Exception:
             return None
+
+    def dump_hierarchy_to_file(self, file_path=None, pretty=False):
+        if not self._using_u2():
+            raise RuntimeError("当前驱动不支持 dump_hierarchy_to_file")
+
+        xml_text = self.d.dump_hierarchy()
+
+        if file_path is None:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_path = os.path.abspath(f"ui_hierarchy_{ts}.xml")
+        else:
+            file_path = os.fspath(file_path)
+
+        parent = os.path.dirname(os.path.abspath(file_path))
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+
+        if pretty:
+            try:
+                import xml.dom.minidom as minidom
+
+                xml_text = minidom.parseString(xml_text.encode("utf-8")).toprettyxml(
+                    indent="  "
+                )
+            except Exception:
+                pass
+
+        with open(file_path, "w", encoding="utf-8") as handle:
+            handle.write(xml_text)
+
+        return file_path
 
     def _get_current_activity(self):
         """获取当前 Activity，失败时返回空字符串。"""

@@ -1,3 +1,6 @@
+python -c "import uiautomator2 as u2; d=u2.connect(); open('u.xml','w',encoding='utf-8').write(d.dump_hierarchy())"
+
+
 # HaTickets - 大麦抢票自动化
 
 这个仓库不是票务展示站，而是一个“大麦抢票自动化工具箱”。

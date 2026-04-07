@@ -1,7 +1,10 @@
 """Unit tests for EventNavigator."""
 
+import contextlib
+import xml.etree.ElementTree as ET
 from unittest.mock import MagicMock
 from mobile.event_navigator import EventNavigator
+from mobile.ui_primitives import UIPrimitives
 
 
 class TestKeywordTokens:
@@ -186,3 +189,56 @@ class TestNavigateToTarget:
         initial = {"state": "search_page"}
         nav.navigate_to_target_event(initial_probe=initial)
         bot._navigate_to_target_impl.assert_called_once_with(initial_probe=initial)
+
+
+class TestSearchResultTourFallback:
+    def test_reads_tour_city_outside_ll_search_item_from_xml(self):
+        config = MagicMock()
+        config.city = "北京"
+        nav = EventNavigator(device=MagicMock(), config=config, probe=MagicMock())
+
+        bot = MagicMock()
+        bot._using_u2.return_value = True
+        bot._timed_step.return_value = contextlib.nullcontext()
+        bot._find_all.return_value = [MagicMock(info={"bounds": {"left": 0, "top": 400, "right": 1080, "bottom": 520}})]
+
+        def safe_element_text(container, by, value):
+            if value == "cn.damai:id/tv_project_tourName":
+                return "邓紫棋 I AM"
+            if value == "cn.damai:id/tv_project_name":
+                return ""
+            if value == "cn.damai:id/tv_time":
+                return ""
+            return ""
+
+        bot._safe_element_text.side_effect = safe_element_text
+        bot._safe_element_texts.return_value = []
+        bot._element_rect.side_effect = lambda el: {
+            "x": int(el.info["bounds"]["left"]),
+            "y": int(el.info["bounds"]["top"]),
+            "width": int(el.info["bounds"]["right"]) - int(el.info["bounds"]["left"]),
+            "height": int(el.info["bounds"]["bottom"]) - int(el.info["bounds"]["top"]),
+        }
+        bot._parse_bounds = UIPrimitives._parse_bounds
+
+        xml_root = ET.fromstring(
+            """
+            <hierarchy>
+              <node resource-id="cn.damai:id/tv_city" text="北京" bounds="[12,510][180,560]" />
+              <node resource-id="cn.damai:id/tv_time" text="2026.05.01" bounds="[12,560][320,610]" />
+            </hierarchy>
+            """
+        )
+        bot._dump_hierarchy_xml.return_value = xml_root
+
+        bot._score_search_result.return_value = 10
+        bot._scroll_search_results = MagicMock()
+
+        nav.set_bot(bot)
+        details = nav._open_target_from_search_results(max_scrolls=0, return_details=True)
+
+        assert details["opened"] is False
+        assert details["search_results"]
+        assert details["search_results"][0]["title"] == "邓紫棋 I AM"
+        assert details["search_results"][0]["city"] == "北京"
+        assert details["search_results"][0]["time"] == "2026.05.01"

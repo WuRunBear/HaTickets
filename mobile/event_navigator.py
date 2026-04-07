@@ -271,6 +271,58 @@ class EventNavigator:
             return
         bot.d.swipe(540, 1770, 540, 520, duration=0.3)
 
+    def _index_nodes_by_resource_id(self, xml_root, resource_ids):
+        bot = self._bot
+        index = {rid: [] for rid in resource_ids}
+        short_to_full = {}
+        for rid in resource_ids:
+            if ":id/" in rid:
+                short_to_full[rid.split(":id/", 1)[1]] = rid
+
+        if xml_root is None:
+            return index
+
+        for node in xml_root.iter("node"):
+            rid_attr = node.get("resource-id", "") or ""
+            canonical = rid_attr if rid_attr in index else short_to_full.get(rid_attr)
+            if not canonical:
+                continue
+            bounds = bot._parse_bounds(node.get("bounds", ""))
+            if not bounds:
+                continue
+            text = (node.get("text", "") or "").strip()
+            if not text:
+                continue
+            index[canonical].append((bounds, text))
+
+        return index
+
+    @staticmethod
+    def _bounds_intersect(a, b):
+        return not (a[2] <= b[0] or a[0] >= b[2] or a[3] <= b[1] or a[1] >= b[3])
+
+    def _nearby_texts(self, anchor, indexed_nodes, resource_id, pad_top=40, pad_bottom=360, pad_x=40):
+        bot = self._bot
+        rect = bot._element_rect(anchor)
+        outer = (
+            max(0, int(rect["x"]) - pad_x),
+            max(0, int(rect["y"]) - pad_top),
+            int(rect["x"]) + int(rect["width"]) + pad_x,
+            int(rect["y"]) + int(rect["height"]) + pad_bottom,
+        )
+
+        texts = []
+        seen = set()
+        for bounds, text in indexed_nodes.get(resource_id, []):
+            if not self._bounds_intersect(bounds, outer):
+                continue
+            normalized = (text or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            texts.append(normalized)
+            seen.add(normalized)
+        return texts
+
     def _open_target_from_search_results(self, max_scrolls=2, max_results=5, return_details=False):
         """Open the best-matching event from search results and optionally return scanned summaries."""
         bot = self._bot
@@ -283,6 +335,11 @@ class EventNavigator:
             for scroll_index in range(max_scrolls + 1):
                 # ✅ 保留你原有的卡片查找：ll_search_item 已经包含两种结构，完全正确
                 result_cards = bot._find_all(By.ID, "cn.damai:id/ll_search_item")
+                xml_root = bot._dump_hierarchy_xml() if bot._using_u2() else None
+                indexed_nodes = self._index_nodes_by_resource_id(
+                    xml_root,
+                    {"cn.damai:id/tv_city", "cn.damai:id/tv_time"},
+                )
 
                 best_match = None
                 best_score = -1
@@ -310,6 +367,10 @@ class EventNavigator:
                     if is_tour_card:
                         # 🎤 【巡演卡片】邓紫棋结构：取内部城市、时间，无场馆
                         city_texts = bot._safe_element_texts(card, By.ID, "cn.damai:id/tv_city")
+                        if not city_texts and bot._using_u2():
+                            city_texts = self._nearby_texts(
+                                card, indexed_nodes, "cn.damai:id/tv_city"
+                            )
                         logger.info(f"city_texts: {city_texts}")
                         cleaned_city_texts = []
                         seen_city = set()
@@ -335,6 +396,11 @@ class EventNavigator:
                         else:
                             city_text = " / ".join(cleaned_city_texts) if cleaned_city_texts else ""
                         time_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_time").strip()
+                        if not time_text and bot._using_u2():
+                            time_candidates = self._nearby_texts(
+                                card, indexed_nodes, "cn.damai:id/tv_time"
+                            )
+                            time_text = (time_candidates[0] if time_candidates else "").strip()
                         venue_text = ""  # 巡演列表页无具体场馆
                     else:
                         # 🎫 【单场卡片】脱口秀结构：原逻辑不变
@@ -398,8 +464,16 @@ class EventNavigator:
 
         for scroll_index in range(max_scrolls + 1):
             result_cards = bot._find_all(By.ID, "cn.damai:id/ll_search_item")
+            xml_root = bot._dump_hierarchy_xml() if bot._using_u2() else None
+            indexed_nodes = self._index_nodes_by_resource_id(
+                xml_root,
+                {"cn.damai:id/tv_city", "cn.damai:id/tv_time"},
+            )
             for card in result_cards:
                 title_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_name")
+                title_tour_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_tourName")
+                if title_tour_text:
+                    title_text = title_tour_text
                 if not title_text:
                     continue
 
@@ -407,9 +481,27 @@ class EventNavigator:
                 if normalized_title in seen:
                     continue
 
-                venue_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_venueName")
-                city_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_city").replace("|", "").strip()
-                time_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_time")
+                is_tour_card = bool(title_tour_text and title_tour_text.strip())
+                if is_tour_card:
+                    venue_text = ""
+                    city_texts = bot._safe_element_texts(card, By.ID, "cn.damai:id/tv_city")
+                    if not city_texts and bot._using_u2():
+                        city_texts = self._nearby_texts(
+                            card, indexed_nodes, "cn.damai:id/tv_city"
+                        )
+                    city_text = " / ".join(
+                        [(t or "").replace("|", "").strip() for t in city_texts if (t or "").strip()]
+                    ).strip()
+                    time_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_time").strip()
+                    if not time_text and bot._using_u2():
+                        time_candidates = self._nearby_texts(
+                            card, indexed_nodes, "cn.damai:id/tv_time"
+                        )
+                        time_text = (time_candidates[0] if time_candidates else "").strip()
+                else:
+                    venue_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_venueName")
+                    city_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_city").replace("|", "").strip()
+                    time_text = bot._safe_element_text(card, By.ID, "cn.damai:id/tv_project_time")
                 price_text = bot._build_compound_price_text(card)
                 score = bot._score_search_result(title_text, venue_text)
 

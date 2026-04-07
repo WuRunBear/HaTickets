@@ -145,7 +145,15 @@ class PageProbe:
             purchase_bar = self._exists_by_resource_id(
                 "cn.damai:id/trade_project_detail_purchase_status_bar_container_fl"
             )
-            return _make_result(state="detail_page", purchase_button=purchase_bar)
+            price_layout = self._exists_by_resource_id(
+                "cn.damai:id/project_detail_price_layout"
+            )
+            logger.info(f"0.1 详情页关键控件: {purchase_bar} {price_layout}")
+            return _make_result(
+                state="detail_page",
+                purchase_button=purchase_bar,
+                price_container=price_layout,
+            )
 
         if "NcovSku" in activity:
             reservation = self._check_reservation_mode()
@@ -198,6 +206,8 @@ class PageProbe:
         )
         price_layout = self._exists_by_resource_id("cn.damai:id/project_detail_price_layout")
         title_tv = self._exists_by_resource_id("cn.damai:id/title_tv")
+
+        logger.info(f"0.2 详情页关键控件: {purchase_bar} SKU页关键控件: {price_layout} {title_tv}")
         if purchase_bar or price_layout or title_tv:
             return _make_result(
                 state="detail_page",
@@ -232,6 +242,7 @@ class PageProbe:
     def _exists_by_resource_id(self, resource_id: str) -> bool:
         try:
             el = self._device(resourceId=resource_id)
+            logger.info(f"检查元素: {resource_id} 存在: {el.exists}")
             return el.exists
         except Exception:
             return False

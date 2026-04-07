@@ -1548,6 +1548,7 @@ class DamaiBot(UIPrimitives):
                     return False
 
             if self.config.probe_only:
+                page_probe = self.probe_current_page()
                 detail_ready = (
                     page_probe["state"] == "detail_page"
                     and page_probe["purchase_button"]
@@ -1557,6 +1558,8 @@ class DamaiBot(UIPrimitives):
                     page_probe["state"] == "sku_page" and page_probe["price_container"]
                 )
 
+                logger.info(f"详情页关键控件: {page_probe['purchase_button']} 详情页关键控件: {page_probe['price_container']}")
+                logger.info(f"1 详情页关键控件: {detail_ready} SKU页关键控件: {sku_ready}")
                 if detail_ready or sku_ready:
                     self._set_run_outcome("probe_ready")
                     logger.info(
@@ -1676,7 +1679,7 @@ class DamaiBot(UIPrimitives):
                             x = rect["x"] + rect["width"] // 2
                             y = rect["y"] + rect["height"] // 2
                             self._click_coordinates(x, y, duration=50)
-                            time.sleep(0.02)
+                            time.sleep(0.01 if self.config.rush_mode else 0.02)
                     except Exception as e:
                         logger.error(f"快速点击加号失败: {e}")
 
@@ -1686,7 +1689,7 @@ class DamaiBot(UIPrimitives):
 
             # 5. 确定购买 — brief wait for price selection to register.
             # Damai App ignores confirm clicks until btn_buy_view becomes clickable (price > 0).
-            time.sleep(0.5)
+            time.sleep(0.15 if self.config.rush_mode else 0.5)
             logger.info("确定购买...")
             submit_ready = False
             confirm_deadline = time.time() + (4.0 if self.config.rush_mode else 1.8)

@@ -1,0 +1,607 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+
+<hierarchy rotation="0">
+
+  <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.vivo.upslide" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,2737][1260,2800]" drawing-order="0" hint="" display-id="0">
+
+    <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.vivo.upslide" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,2737][1260,2800]" drawing-order="1" hint="" display-id="0">
+
+      <node index="0" text="" resource-id="" class="android.widget.LinearLayout" package="com.vivo.upslide" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,2737][1260,2800]" drawing-order="1" hint="" display-id="0">
+
+        <node index="0" text="" resource-id="com.vivo.upslide:id/indicator_center" class="android.widget.ImageView" package="com.vivo.upslide" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[374,2782][885,2800]" drawing-order="2" hint="" display-id="0" />
+
+      </node>
+
+    </node>
+
+  </node>
+
+  <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,133]" drawing-order="0" hint="" display-id="0">
+
+    <node index="0" text="" resource-id="com.android.systemui:id/status_bar_launch_animation_container" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,133]" drawing-order="1" hint="" display-id="0" />
+
+    <node index="1" text="" resource-id="com.android.systemui:id/status_bar_container" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,133]" drawing-order="2" hint="" display-id="0">
+
+      <node index="0" text="" resource-id="com.android.systemui:id/status_bar" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,133]" drawing-order="1" hint="" display-id="0">
+
+        <node index="0" text="" resource-id="com.android.systemui:id/status_bar_contents" class="android.widget.LinearLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[70,0][1190,133]" drawing-order="2" hint="" display-id="0">
+
+          <node index="0" text="" resource-id="com.android.systemui:id/status_bar_start_side_container" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[70,3][584,133]" drawing-order="1" hint="" display-id="0">
+
+            <node index="0" text="" resource-id="com.android.systemui:id/status_bar_start_side_content" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[70,3][584,133]" drawing-order="1" hint="" display-id="0">
+
+              <node index="0" text="" resource-id="com.android.systemui:id/status_bar_start_side_except_heads_up" class="android.widget.LinearLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[70,3][584,133]" drawing-order="2" hint="" display-id="0">
+
+                <node index="0" text="" resource-id="com.android.systemui:id/status_bar_start_side_except_capsule" class="android.widget.LinearLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[70,3][584,133]" drawing-order="1" hint="" display-id="0">
+
+                  <node index="0" text="21:03" resource-id="com.android.systemui:id/clock" class="android.widget.TextView" package="com.android.systemui" content-desc="21:03" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[70,41][208,95]" drawing-order="2" hint="" display-id="0" />
+
+                  <node index="1" text="" resource-id="com.android.systemui:id/notification_icon_area" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[208,3][572,133]" drawing-order="5" hint="" display-id="0">
+
+                    <node index="0" text="" resource-id="com.android.systemui:id/notificationIcons" class="android.view.ViewGroup" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[208,3][572,133]" drawing-order="1" hint="" display-id="0">
+
+                      <node index="0" text="" resource-id="" class="" package="com.android.systemui" content-desc="哔哩哔哩通知：" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[208,38][249,98]" drawing-order="1" hint="" display-id="0" />
+
+                      <node index="1" text="" resource-id="" class="" package="com.android.systemui" content-desc="华为运动健康通知：" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[263,38][304,98]" drawing-order="2" hint="" display-id="0" />
+
+                      <node index="2" text="" resource-id="" class="" package="com.android.systemui" content-desc="海康互联通知：" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[317,38][358,98]" drawing-order="3" hint="" display-id="0" />
+
+                      <node index="3" text="" resource-id="" class="" package="com.android.systemui" content-desc="Android 系统通知：" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[372,38][413,98]" drawing-order="4" hint="" display-id="0" />
+
+                    </node>
+
+                  </node>
+
+                </node>
+
+              </node>
+
+            </node>
+
+          </node>
+
+          <node index="1" text="" resource-id="com.android.systemui:id/cutout_space_view" class="android.view.View" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[584,3][676,107]" drawing-order="2" hint="" display-id="0" />
+
+          <node index="2" text="" resource-id="com.android.systemui:id/status_bar_end_side_container" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[676,3][1190,133]" drawing-order="3" hint="" display-id="0">
+
+            <node index="0" text="" resource-id="com.android.systemui:id/status_bar_end_side_content" class="android.widget.LinearLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[676,3][1190,133]" drawing-order="1" hint="" display-id="0">
+
+              <node index="0" text="" resource-id="" class="android.widget.RelativeLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[676,3][1190,133]" drawing-order="2" hint="" display-id="0">
+
+                <node index="0" text="" resource-id="com.android.systemui:id/system_icons" class="android.widget.LinearLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[676,3][1190,133]" drawing-order="1" hint="" display-id="0">
+
+                  <node index="0" text="" resource-id="com.android.systemui:id/statusIcons" class="android.widget.LinearLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[676,3][1087,133]" drawing-order="1" hint="" display-id="0">
+
+                    <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[855,45][922,90]" drawing-order="8" hint="" display-id="0">
+
+                      <node index="0" text="" resource-id="com.android.systemui:id/speed_container" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[855,45][922,90]" drawing-order="1" hint="" display-id="0">
+
+                        <node index="0" text="" resource-id="com.android.systemui:id/networkspeed_vertical" class="android.widget.LinearLayout" package="com.android.systemui" content-desc="0.60KB/s" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[855,45][922,90]" drawing-order="1" hint="" display-id="0">
+
+                          <node index="0" text="0.60" resource-id="com.android.systemui:id/networkspeed_num" class="android.widget.TextView" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[855,45][922,68]" drawing-order="1" hint="" display-id="0" />
+
+                          <node index="1" text="KB/s" resource-id="com.android.systemui:id/networkspeed_unit" class="android.widget.TextView" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[855,71][922,90]" drawing-order="2" hint="" display-id="0" />
+
+                        </node>
+
+                      </node>
+
+                    </node>
+
+                    <node index="1" text="" resource-id="" class="" package="com.android.systemui" content-desc="应用发出了有效位置信息请求" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[706,22][741,113]" drawing-order="2" hint="" display-id="0" />
+
+                    <node index="2" text="" resource-id="" class="" package="com.android.systemui" content-desc="振铃器静音。" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[752,22][791,113]" drawing-order="5" hint="" display-id="0" />
+
+                    <node index="3" text="" resource-id="" class="" package="com.android.systemui" content-desc="蓝牙开启。" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[802,47][844,89]" drawing-order="6" hint="" display-id="0" />
+
+                    <node index="4" text="" resource-id="com.android.systemui:id/mobile_combo" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="中国电信, 4G+, 信号强度四格，共四格." checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[933,22][999,113]" drawing-order="11" hint="" display-id="0">
+
+                      <node index="0" text="" resource-id="com.android.systemui:id/mobile_group" class="android.widget.LinearLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[933,47][999,89]" drawing-order="1" hint="" display-id="0">
+
+                        <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[933,47][999,89]" drawing-order="2" hint="" display-id="0">
+
+                          <node index="0" text="" resource-id="" class="android.widget.LinearLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[933,47][999,89]" drawing-order="2" hint="" display-id="0">
+
+                            <node index="0" text="" resource-id="com.android.systemui:id/inout_container" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[933,47][947,89]" drawing-order="1" hint="" display-id="0">
+
+                              <node index="0" text="" resource-id="com.android.systemui:id/mobile_in" class="android.widget.ImageView" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[933,47][947,89]" drawing-order="1" hint="" display-id="0" />
+
+                              <node index="1" text="" resource-id="com.android.systemui:id/mobile_out" class="android.widget.ImageView" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[933,47][947,89]" drawing-order="2" hint="" display-id="0" />
+
+                            </node>
+
+                            <node index="1" text="" resource-id="com.android.systemui:id/mobile_signal" class="" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[947,47][999,89]" drawing-order="2" hint="" display-id="0" />
+
+                          </node>
+
+                          <node index="1" text="" resource-id="com.android.systemui:id/mobile_type" class="android.widget.ImageView" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[933,47][976,64]" drawing-order="1" hint="" display-id="0" />
+
+                        </node>
+
+                      </node>
+
+                    </node>
+
+                    <node index="5" text="" resource-id="com.android.systemui:id/mobile_combo" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="中国移动, 5G, 信号强度四格，共四格." checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1010,22][1076,113]" drawing-order="12" hint="" display-id="0">
+
+                      <node index="0" text="" resource-id="com.android.systemui:id/mobile_group" class="android.widget.LinearLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1010,47][1076,89]" drawing-order="1" hint="" display-id="0">
+
+                        <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1010,47][1076,89]" drawing-order="2" hint="" display-id="0">
+
+                          <node index="0" text="" resource-id="" class="android.widget.LinearLayout" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1010,47][1076,89]" drawing-order="2" hint="" display-id="0">
+
+                            <node index="0" text="" resource-id="com.android.systemui:id/mobile_signal" class="" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1024,47][1076,89]" drawing-order="2" hint="" display-id="0" />
+
+                          </node>
+
+                          <node index="1" text="" resource-id="com.android.systemui:id/mobile_type" class="android.widget.ImageView" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1010,47][1038,64]" drawing-order="1" hint="" display-id="0" />
+
+                        </node>
+
+                      </node>
+
+                    </node>
+
+                  </node>
+
+                  <node index="1" text="" resource-id="com.android.systemui:id/battery" class="android.widget.LinearLayout" package="com.android.systemui" content-desc="正在充电，已完成百分之 40。" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1087,3][1190,133]" drawing-order="2" hint="" display-id="0">
+
+                    <node index="0" text="" resource-id="" class="" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1087,47][1190,89]" drawing-order="1" hint="" display-id="0" />
+
+                  </node>
+
+                </node>
+
+                <node index="1" text="" resource-id="com.android.systemui:id/vivo_superX_system_icon_image" class="android.widget.ImageView" package="com.android.systemui" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1127,36][1190,99]" drawing-order="2" hint="" display-id="0" />
+
+              </node>
+
+            </node>
+
+          </node>
+
+        </node>
+
+      </node>
+
+    </node>
+
+  </node>
+
+  <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="0" hint="" display-id="0">
+
+    <node index="0" text="" resource-id="" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="1" hint="" display-id="0">
+
+      <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="2" hint="" display-id="0">
+
+        <node index="0" text="" resource-id="cn.damai:id/water_mark_view_id" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="2" hint="" display-id="0" />
+
+        <node index="1" text="" resource-id="cn.damai:id/action_bar_root" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="1" hint="" display-id="0">
+
+          <node index="0" text="" resource-id="android:id/content" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="2" hint="" display-id="0">
+
+            <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="1" hint="" display-id="0">
+
+              <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="1" hint="" display-id="0">
+
+                <node index="0" text="" resource-id="cn.damai:id/scheme_project_detail_flyt" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="1" hint="" display-id="0">
+
+                  <node index="0" text="" resource-id="cn.damai:id/id_new_skeleton" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="1" hint="" display-id="0" />
+
+                  <node index="1" text="" resource-id="" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="3" hint="" display-id="0">
+
+                    <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="1" hint="" display-id="0">
+
+                      <node index="0" text="" resource-id="cn.damai:id/id_new_skeleton" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="6" hint="" display-id="0" />
+
+                      <node index="1" text="" resource-id="cn.damai:id/project_bottom_container" class="android.widget.RelativeLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2800]" drawing-order="3" hint="" display-id="0">
+
+                        <node index="2" text="" resource-id="cn.damai:id/project_item_bottom_bar_lv" class="android.view.ViewGroup" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,2579][1260,2800]" drawing-order="2" hint="" display-id="0">
+
+                          <node index="0" text="" resource-id="cn.damai:id/project_bottom_customer_follow_container_lv_concert_type" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[35,2579][368,2800]" drawing-order="3" hint="" display-id="0">
+
+                            <node index="0" text="" resource-id="cn.damai:id/project_item_bottom_customer_service_lv" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[63,2579][159,2800]" drawing-order="1" hint="" display-id="0">
+
+                              <node index="0" text="" resource-id="cn.damai:id/project_item_bottom_customer_service_iconf" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[63,2621][159,2717]" drawing-order="1" hint="" display-id="0" />
+
+                              <node index="1" text="帮助" resource-id="" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[76,2724][146,2765]" drawing-order="2" hint="" display-id="0" />
+
+                            </node>
+
+                            <node index="1" text="" resource-id="" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[159,2579][200,2583]" drawing-order="2" hint="" display-id="0" />
+
+                            <node index="2" text="" resource-id="cn.damai:id/project_item_bottom_want_to_see_fl" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[200,2579][305,2800]" drawing-order="3" hint="" display-id="0">
+
+                              <node index="0" text="" resource-id="cn.damai:id/project_bottom_want_to_see_view_concert_type" class="android.widget.ImageView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[200,2609][305,2714]" drawing-order="1" hint="" display-id="0" />
+
+                              <node index="1" text="想看" resource-id="cn.damai:id/project_item_bottom_follow_text_tv_concert_type" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[217,2724][287,2765]" drawing-order="2" hint="" display-id="0" />
+
+                            </node>
+
+                          </node>
+
+                          <node index="1" text="" resource-id="cn.damai:id/trade_project_detail_purchase_status_bar_container_fl" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[368,2610][1225,2769]" drawing-order="4" hint="" display-id="0" />
+
+                        </node>
+
+                      </node>
+
+                      <node index="2" text="" resource-id="cn.damai:id/id_new_project_refresh" class="android.view.ViewGroup" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2579]" drawing-order="1" hint="" display-id="0">
+
+                        <node index="1" text="" resource-id="cn.damai:id/id_new_project_recycler" class="androidx.recyclerview.widget.RecyclerView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="true" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,2579]" drawing-order="1" hint="" display-id="0">
+
+                          <node index="0" text="" resource-id="" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,810]" drawing-order="1" hint="" display-id="0">
+
+                            <node index="0" text="" resource-id="cn.damai:id/project_header_bg" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,329]" drawing-order="1" hint="" display-id="0" />
+
+                            <node index="1" text="" resource-id="cn.damai:id/header_base_uill" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,287][1260,810]" drawing-order="3" hint="" display-id="0">
+
+                              <node index="0" text="" resource-id="cn.damai:id/header_base_info_ui" class="android.widget.RelativeLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,287][1260,799]" drawing-order="2" hint="" display-id="0">
+
+                                <node index="0" text="" resource-id="cn.damai:id/concert_poster_ui" class="android.widget.RelativeLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[74,340][417,799]" drawing-order="1" hint="" display-id="0">
+
+                                  <node NAF="true" index="0" text="" resource-id="cn.damai:id/project_item_poster_image_iv" class="android.widget.ImageView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[74,340][417,799]" drawing-order="1" hint="" display-id="0" />
+
+                                  <node index="1" text="演唱会" resource-id="cn.damai:id/project_poster_tv" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[85,351][203,407]" drawing-order="4" hint="" display-id="0" />
+
+                                </node>
+
+                                <node index="1" text="" resource-id="cn.damai:id/ll_concert_info" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[459,340][1186,799]" drawing-order="2" hint="" display-id="0">
+
+                                  <node index="0" text="" resource-id="cn.damai:id/concert_title_ll" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[459,340][1186,494]" drawing-order="1" hint="" display-id="0">
+
+                                    <node index="0" text="" resource-id="cn.damai:id/concert_title_layout1" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[459,340][1186,483]" drawing-order="1" hint="" display-id="0">
+
+                                      <node index="0" text="G.E.M.邓紫棋I AM GLORIA世界巡回演唱会2.0－新加坡站" resource-id="cn.damai:id/project_title_tv1" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[459,340][1186,483]" drawing-order="2" hint="" display-id="0" />
+
+                                    </node>
+
+                                  </node>
+
+                                  <node index="1" text="" resource-id="cn.damai:id/ll_concert_price" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[459,494][1186,799]" drawing-order="2" hint="" display-id="0">
+
+                                    <node index="0" text="" resource-id="cn.damai:id/project_detail_price_layout" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[459,701][790,799]" drawing-order="1" hint="" display-id="0">
+
+                                      <node index="0" text="" resource-id="cn.damai:id/concert_price_tv" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[459,701][769,799]" drawing-order="1" hint="" display-id="0">
+
+                                        <node index="0" text="" resource-id="" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[459,701][769,799]" drawing-order="1" hint="" display-id="0">
+
+                                          <node index="0" text="" resource-id="" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[459,701][769,799]" drawing-order="1" hint="" display-id="0">
+
+                                            <node index="0" text="¥" resource-id="cn.damai:id/project_price_char" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[459,730][482,784]" drawing-order="1" hint="" display-id="0" />
+
+                                            <node index="1" text="988" resource-id="cn.damai:id/project_price_pre" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[482,701][584,799]" drawing-order="2" hint="" display-id="0" />
+
+                                            <node index="2" text="" resource-id="cn.damai:id/project_price_middle_line" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[591,753][626,760]" drawing-order="3" hint="" display-id="0" />
+
+                                            <node index="3" text="1988" resource-id="cn.damai:id/project_price_suffix" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[633,701][769,799]" drawing-order="4" hint="" display-id="0" />
+
+                                          </node>
+
+                                        </node>
+
+                                      </node>
+
+                                    </node>
+
+                                  </node>
+
+                                </node>
+
+                              </node>
+
+                            </node>
+
+                          </node>
+
+                          <node index="1" text="" resource-id="" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,810][1260,1524]" drawing-order="2" hint="" display-id="0">
+
+                            <node index="0" text="" resource-id="cn.damai:id/view_bg_concert_top" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,810][1260,1160]" drawing-order="1" hint="" display-id="0" />
+
+                            <node index="1" text="" resource-id="" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,810][1218,1524]" drawing-order="2" hint="" display-id="0">
+
+                              <node index="0" text="" resource-id="cn.damai:id/faqs_container" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,810][1218,1524]" drawing-order="1" hint="" display-id="0">
+
+                                <node index="0" text="" resource-id="cn.damai:id/id_bricks_tour_container" class="androidx.recyclerview.widget.RecyclerView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="true" focused="false" scrollable="true" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,852][1218,1020]" drawing-order="1" hint="" display-id="0">
+
+                                  <node index="0" text="" resource-id="" class="android.view.ViewGroup" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,852][84,1020]" drawing-order="1" hint="" display-id="0">
+
+                                    <node NAF="true" index="0" text="" resource-id="cn.damai:id/tour_city_normal_bg" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,852][84,1006]" drawing-order="1" hint="" display-id="0" />
+
+                                    <node index="1" text="重庆站" resource-id="cn.damai:id/tour_city_name" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="true" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,866][63,929]" drawing-order="3" hint="" display-id="0" />
+
+                                    <node index="2" text="预约" resource-id="cn.damai:id/tour_city_name_state_desc" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,852][84,899]" drawing-order="5" hint="" display-id="0" />
+
+                                    <node index="3" text="08.22" resource-id="cn.damai:id/tour_city_name_show_time" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="true" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,942][63,992]" drawing-order="4" hint="" display-id="0" />
+
+                                  </node>
+
+                                  <node index="1" text="" resource-id="" class="android.view.ViewGroup" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[105,852][448,1020]" drawing-order="2" hint="" display-id="0">
+
+                                    <node index="0" text="" resource-id="cn.damai:id/tour_city_select_bg" class="android.widget.ImageView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[105,852][448,1020]" drawing-order="2" hint="" display-id="0" />
+
+                                    <node index="1" text="新加坡站" resource-id="cn.damai:id/tour_city_name" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="true" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[126,866][427,929]" drawing-order="3" hint="" display-id="0" />
+
+                                    <node index="2" text="热卖" resource-id="cn.damai:id/tour_city_name_state_desc" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[370,852][448,899]" drawing-order="5" hint="" display-id="0" />
+
+                                    <node index="3" text="05.23" resource-id="cn.damai:id/tour_city_name_show_time" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="true" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[126,942][427,992]" drawing-order="4" hint="" display-id="0" />
+
+                                  </node>
+
+                                  <node index="2" text="" resource-id="" class="android.view.ViewGroup" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[469,852][812,1020]" drawing-order="3" hint="" display-id="0">
+
+                                    <node NAF="true" index="0" text="" resource-id="cn.damai:id/tour_city_normal_bg" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[469,852][812,1006]" drawing-order="1" hint="" display-id="0" />
+
+                                    <node index="1" text="吉隆坡站" resource-id="cn.damai:id/tour_city_name" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="true" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[490,866][791,929]" drawing-order="3" hint="" display-id="0" />
+
+                                    <node index="2" text="热卖" resource-id="cn.damai:id/tour_city_name_state_desc" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[734,852][812,899]" drawing-order="5" hint="" display-id="0" />
+
+                                    <node index="3" text="06.06" resource-id="cn.damai:id/tour_city_name_show_time" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="true" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[490,942][791,992]" drawing-order="4" hint="" display-id="0" />
+
+                                  </node>
+
+                                  <node index="3" text="" resource-id="" class="android.view.ViewGroup" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[833,852][1176,1020]" drawing-order="4" hint="" display-id="0">
+
+                                    <node NAF="true" index="1" text="" resource-id="cn.damai:id/tour_city_normal_bg" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[833,852][1176,1006]" drawing-order="1" hint="" display-id="0" />
+
+                                    <node index="2" text="" resource-id="cn.damai:id/tour_city_name_show_time" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="true" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[854,904][1155,954]" drawing-order="4" hint="" display-id="0" />
+
+                                    <node index="3" text="" resource-id="cn.damai:id/need_add_icon" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[895,908][937,950]" drawing-order="6" hint="" display-id="0" />
+
+                                    <node index="4" text="求加场" resource-id="cn.damai:id/need_add_desc" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[976,902][1114,956]" drawing-order="7" hint="" display-id="0" />
+
+                                  </node>
+
+                                </node>
+
+                                <node index="1" text="" resource-id="cn.damai:id/ll_show_time" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1048][1176,1215]" drawing-order="2" hint="" display-id="0">
+
+                                  <node index="0" text="2026.05.23 周六 19:30" resource-id="cn.damai:id/tv_show_time" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1048][611,1119]" drawing-order="1" hint="" display-id="0" />
+
+                                  <node index="1" text="以现场为准" resource-id="cn.damai:id/tv_show_duration" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1126][294,1175]" drawing-order="2" hint="" display-id="0" />
+
+                                  <node index="2" text="" resource-id="" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1214][1176,1215]" drawing-order="3" hint="" display-id="0" />
+
+                                </node>
+
+                                <node index="2" text="" resource-id="cn.damai:id/venue_root_container_0" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,1215][1218,1411]" drawing-order="3" hint="" display-id="0">
+
+                                  <node index="0" text="" resource-id="" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,1215][1218,1411]" drawing-order="1" hint="" display-id="0">
+
+                                    <node index="0" text="" resource-id="cn.damai:id/venue_main_ui_0" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1247][1029,1379]" drawing-order="1" hint="" display-id="0">
+
+                                      <node index="0" text="新加坡 · 新加坡国家体育场 National Stadium, Singapore" resource-id="cn.damai:id/venue_name_0" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1247][1029,1309]" drawing-order="1" hint="" display-id="0" />
+
+                                      <node index="1" text="" resource-id="cn.damai:id/venue_address_container_0" class="android.view.ViewGroup" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1330][1029,1379]" drawing-order="2" hint="" display-id="0">
+
+                                        <node index="0" text="1 Stadium Drive, Singapore 397629" resource-id="cn.damai:id/venue_address_0" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1330][765,1379]" drawing-order="1" hint="" display-id="0" />
+
+                                        <node index="1" text="" resource-id="cn.damai:id/extends_view_0" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[765,1353][1029,1357]" drawing-order="3" hint="" display-id="0" />
+
+                                      </node>
+
+                                    </node>
+
+                                    <node index="1" text="" resource-id="cn.damai:id/venue_seat_pic_ui_0" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1071,1255][1176,1370]" drawing-order="2" hint="" display-id="0">
+
+                                      <node index="0" text="" resource-id="cn.damai:id/venue_seat_icon_0" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1092,1255][1155,1318]" drawing-order="1" hint="" display-id="0" />
+
+                                      <node index="1" text="座位图" resource-id="cn.damai:id/venue_seat_pic_tv_0" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1071,1329][1176,1370]" drawing-order="2" hint="" display-id="0" />
+
+                                    </node>
+
+                                  </node>
+
+                                  <node index="1" text="" resource-id="cn.damai:id/venue_divider_0" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1410][1176,1411]" drawing-order="2" hint="" display-id="0" />
+
+                                </node>
+
+                                <node index="3" text="" resource-id="cn.damai:id/id_bricks_service_layout" class="android.widget.RelativeLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,1411][1218,1524]" drawing-order="6" hint="" display-id="0">
+
+                                  <node index="0" text="" resource-id="cn.damai:id/id_bricks_service_container" class="android.view.ViewGroup" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1443][1092,1492]" drawing-order="1" hint="" display-id="0">
+
+                                    <node index="0" text="" resource-id="" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1443][347,1492]" drawing-order="1" hint="" display-id="0">
+
+                                      <node index="0" text="" resource-id="cn.damai:id/project_support_indicator_iv" class="android.widget.ImageView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1446][126,1488]" drawing-order="1" hint="" display-id="0" />
+
+                                      <node index="1" text="不支持退" resource-id="cn.damai:id/project_support_content_tv" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[137,1443][305,1492]" drawing-order="2" hint="" display-id="0" />
+
+                                    </node>
+
+                                    <node index="1" text="" resource-id="" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[347,1443][568,1492]" drawing-order="2" hint="" display-id="0">
+
+                                      <node index="0" text="" resource-id="cn.damai:id/project_support_indicator_iv" class="android.widget.ImageView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[347,1446][389,1488]" drawing-order="1" hint="" display-id="0" />
+
+                                      <node index="1" text="快递票" resource-id="cn.damai:id/project_support_content_tv" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[400,1443][526,1492]" drawing-order="2" hint="" display-id="0" />
+
+                                    </node>
+
+                                    <node index="2" text="" resource-id="" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[568,1443][873,1492]" drawing-order="3" hint="" display-id="0">
+
+                                      <node index="0" text="" resource-id="cn.damai:id/project_support_indicator_iv" class="android.widget.ImageView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[568,1446][610,1488]" drawing-order="1" hint="" display-id="0" />
+
+                                      <node index="1" text="门票即发票" resource-id="cn.damai:id/project_support_content_tv" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[621,1443][831,1492]" drawing-order="2" hint="" display-id="0" />
+
+                                    </node>
+
+                                  </node>
+
+                                  <node index="1" text="" resource-id="cn.damai:id/show_count_icon" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1141,1450][1176,1485]" drawing-order="3" hint="" display-id="0" />
+
+                                </node>
+
+                              </node>
+
+                            </node>
+
+                          </node>
+
+                          <node index="2" text="" resource-id="" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,1556][1218,1775]" drawing-order="3" hint="" display-id="0">
+
+                            <node index="0" text="" resource-id="" class="android.widget.RelativeLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,1556][1218,1775]" drawing-order="1" hint="" display-id="0">
+
+                              <node index="0" text="" resource-id="cn.damai:id/goto_setinfo_desc" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,1598][1176,1718]" drawing-order="1" hint="" display-id="0">
+
+                                <node index="0" text="" resource-id="" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1598][1176,1651]" drawing-order="1" hint="" display-id="0">
+
+                                  <node index="0" text="" resource-id="cn.damai:id/goto_setinfo_imgtitle" class="android.widget.ImageView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1598][315,1651]" drawing-order="1" hint="" display-id="0" />
+
+                                </node>
+
+                                <node index="1" text="设置本次抢票信息，抢票快人一步！" resource-id="cn.damai:id/goto_setinfo_tv2" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1669][1176,1718]" drawing-order="3" hint="" display-id="0" />
+
+                              </node>
+
+                              <node index="1" text="" resource-id="cn.damai:id/goto_setinfo_btn" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[967,1613][1175,1718]" drawing-order="2" hint="" display-id="0">
+
+                                <node index="0" text="去设置" resource-id="cn.damai:id/goto_setinfo_btn_text" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1009,1637][1133,1694]" drawing-order="1" hint="" display-id="0" />
+
+                              </node>
+
+                            </node>
+
+                          </node>
+
+                          <node index="3" text="" resource-id="cn.damai:id/project_want_see_and_score_container" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,1807][1218,2219]" drawing-order="4" hint="" display-id="0">
+
+                            <node index="0" text="" resource-id="cn.damai:id/project_want_see_ui" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,1807][1218,2219]" drawing-order="1" hint="" display-id="0">
+
+                              <node index="1" text="" resource-id="" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,1807][1218,2219]" drawing-order="2" hint="" display-id="0">
+
+                                <node index="0" text="" resource-id="" class="android.widget.ImageView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1849][329,1910]" drawing-order="1" hint="" display-id="0" />
+
+                                <node index="1" text="" resource-id="" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,1931][1218,2111]" drawing-order="2" hint="" display-id="0">
+
+                                  <node index="0" text="" resource-id="cn.damai:id/want_see_ll" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1931][603,2111]" drawing-order="1" hint="" display-id="0">
+
+                                    <node index="0" text="24,989" resource-id="cn.damai:id/want_see_number_dtv" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,1931][466,2111]" drawing-order="1" hint="" display-id="0" />
+
+                                    <node index="1" text="人想看" resource-id="cn.damai:id/want_see_number_suffix_dtv" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[466,2030][603,2079]" drawing-order="2" hint="" display-id="0" />
+
+                                  </node>
+
+                                  <node index="1" text="" resource-id="" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[603,1931][966,1935]" drawing-order="2" hint="" display-id="0" />
+
+                                  <node index="2" text="" resource-id="cn.damai:id/wanna_see_btn" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[966,1968][1176,2073]" drawing-order="3" hint="" display-id="0">
+
+                                    <node index="0" text="" resource-id="cn.damai:id/wanna_see_tag_2" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1001,1996][1050,2045]" drawing-order="1" hint="" display-id="0" />
+
+                                    <node index="1" text="想看" resource-id="cn.damai:id/wanna_see_text" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1057,1996][1141,2045]" drawing-order="2" hint="" display-id="0" />
+
+                                  </node>
+
+                                </node>
+
+                                <node index="2" text="" resource-id="cn.damai:id/want_see_view_flipper" class="android.widget.ViewFlipper" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,2125][432,2177]" drawing-order="3" hint="" display-id="0">
+
+                                  <node index="0" text="超过60%同类演出" resource-id="" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,2125][432,2177]" drawing-order="1" hint="" display-id="0" />
+
+                                </node>
+
+                              </node>
+
+                            </node>
+
+                          </node>
+
+                          <node index="4" text="" resource-id="" class="android.view.ViewGroup" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,2251][1260,2524]" drawing-order="5" hint="" display-id="0">
+
+                            <node index="0" text="" resource-id="cn.damai:id/project_artists_info_block_single" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,2251][1218,2524]" drawing-order="1" hint="" display-id="0">
+
+                              <node index="0" text="" resource-id="cn.damai:id/project_artists_info_artists_poster" class="android.widget.ImageView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[84,2293][273,2482]" drawing-order="1" hint="" display-id="0" />
+
+                              <node index="1" text="" resource-id="cn.damai:id/project_artists_info_content_block" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[315,2311][938,2463]" drawing-order="2" hint="" display-id="0">
+
+                                <node index="0" text="邓紫棋" resource-id="cn.damai:id/project_artists_info_name" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[315,2311][483,2377]" drawing-order="1" hint="" display-id="0" />
+
+                                <node index="1" text="" resource-id="" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[315,2402][938,2463]" drawing-order="2" hint="" display-id="0">
+
+                                  <node index="0" text="1850.1" resource-id="cn.damai:id/project_artists_info_fans_num" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[315,2402][478,2452]" drawing-order="1" hint="" display-id="0" />
+
+                                  <node index="1" text="万" resource-id="cn.damai:id/project_artists_info_fans_num_suffix1" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[482,2403][524,2452]" drawing-order="2" hint="" display-id="0" />
+
+                                  <node index="2" text="粉丝" resource-id="cn.damai:id/project_artists_info_fans_num_suffix2" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[528,2403][612,2452]" drawing-order="3" hint="" display-id="0" />
+
+                                  <node index="3" text="" resource-id="cn.damai:id/project_artists_info_digit_divider" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[633,2421][635,2463]" drawing-order="4" hint="" display-id="0" />
+
+                                  <node index="4" text="6" resource-id="cn.damai:id/project_artists_info_tour_city_num" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[656,2403][685,2452]" drawing-order="5" hint="" display-id="0" />
+
+                                  <node index="5" text="场" resource-id="cn.damai:id/project_artists_info_tour_city_num_suffix1" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[689,2403][731,2452]" drawing-order="6" hint="" display-id="0" />
+
+                                  <node index="6" text="在售演出" resource-id="cn.damai:id/project_artists_info_tour_city_num_suffix2" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[735,2403][903,2452]" drawing-order="7" hint="" display-id="0" />
+
+                                </node>
+
+                              </node>
+
+                              <node index="2" text="" resource-id="cn.damai:id/project_artists_info_btn_block" class="android.widget.RelativeLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[966,2293][1176,2482]" drawing-order="3" hint="" display-id="0">
+
+                                <node index="0" text="" resource-id="cn.damai:id/project_artists_info_btn" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[966,2335][1176,2440]" drawing-order="1" hint="" display-id="0">
+
+                                  <node index="0" text="" resource-id="cn.damai:id/project_artists_info_btn_des_icon" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1007,2371][1039,2403]" drawing-order="1" hint="" display-id="0" />
+
+                                  <node index="1" text="关注" resource-id="cn.damai:id/project_artists_info_btn_des" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1050,2357][1134,2418]" drawing-order="2" hint="" display-id="0" />
+
+                                </node>
+
+                              </node>
+
+                            </node>
+
+                          </node>
+
+                          <node index="5" text="" resource-id="" class="android.view.View" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,2556][1260,2557]" drawing-order="6" hint="" display-id="0" />
+
+                          <node index="6" text="" resource-id="" class="android.widget.FrameLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,2557][1260,2579]" drawing-order="7" hint="" display-id="0">
+
+                            <node index="0" text="演出介绍" resource-id="cn.damai:id/id_new_project_item_shape_title" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,2557][1218,2579]" drawing-order="1" hint="" display-id="0" />
+
+                          </node>
+
+                        </node>
+
+                      </node>
+
+                      <node index="3" text="" resource-id="cn.damai:id/id_new_project_title_layout" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,287]" drawing-order="2" hint="" display-id="0">
+
+                        <node index="0" text="" resource-id="cn.damai:id/project_detail_title_bar" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,0][1260,287]" drawing-order="1" hint="" display-id="0">
+
+                          <node index="1" text="" resource-id="cn.damai:id/project_detail_title_bar" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[0,133][1260,287]" drawing-order="2" hint="" display-id="0">
+
+                            <node index="0" text="" resource-id="cn.damai:id/project_detail_title_bar_back_btn" class="android.widget.TextView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[42,157][147,262]" drawing-order="1" hint="" display-id="0" />
+
+                            <node index="2" text="" resource-id="cn.damai:id/project_detail_my_want_share_block" class="android.widget.LinearLayout" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="false" enabled="true" focusable="false" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[966,133][1218,287]" drawing-order="3" hint="" display-id="0">
+
+                              <node NAF="true" index="0" text="" resource-id="cn.damai:id/project_detail_my_want_icon" class="android.widget.ImageView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[966,157][1071,262]" drawing-order="1" hint="" display-id="0" />
+
+                              <node NAF="true" index="1" text="" resource-id="cn.damai:id/project_detail_new_share_lottie" class="android.widget.ImageView" package="cn.damai" content-desc="" checkable="false" checked="false" clickable="true" enabled="true" focusable="true" focused="false" scrollable="false" long-clickable="false" password="false" selected="false" visible-to-user="true" bounds="[1113,157][1218,262]" drawing-order="2" hint="" display-id="0" />
+
+                            </node>
+
+                          </node>
+
+                        </node>
+
+                      </node>
+
+                    </node>
+
+                  </node>
+
+                </node>
+
+              </node>
+
+            </node>
+
+          </node>
+
+        </node>
+
+      </node>
+
+    </node>
+
+  </node>
+
+</hierarchy>

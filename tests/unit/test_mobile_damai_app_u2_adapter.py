@@ -85,6 +85,19 @@ class TestU2SetupAndCoreAdapters:
         assert selector == "selector"
         bot.d.assert_called_once_with(className="android.widget.FrameLayout", clickable=True, instance=2)
 
+    def test_dump_hierarchy_to_file_writes_xml(self, tmp_path):
+        bot = DamaiBot(config=_u2_config(), setup_driver=False)
+        bot.d = Mock()
+        bot.driver = bot.d
+        bot.d.dump_hierarchy.return_value = "<hierarchy><node text='ok'/></hierarchy>"
+
+        target = tmp_path / "u.xml"
+        written = bot.dump_hierarchy_to_file(target)
+
+        assert str(target) == written
+        assert target.exists()
+        assert target.read_text(encoding="utf-8") == bot.d.dump_hierarchy.return_value
+
     def test_parse_uiselector_invalid_raises(self):
         bot = DamaiBot(config=_u2_config(), setup_driver=False)
         bot.d = Mock()
