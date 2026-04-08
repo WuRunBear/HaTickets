@@ -1,9 +1,11 @@
 """Unit tests for mobile/config.py"""
 import json
+import logging
 import os
 import re
 import sys
 import types
+from queue import Queue
 
 import pytest
 
@@ -616,7 +618,7 @@ def test_gui_smoke_load_and_apply_mode(monkeypatch, tmp_path):
     monkeypatch.setattr(gui_module, "_repo_root", lambda: tmp_path)
 
     created_buttons = []
-    editor_ref = {}
+    editor_ref = {"texts": []}
 
     class DummyVar:
         def __init__(self, value=""):
@@ -636,7 +638,9 @@ def test_gui_smoke_load_and_apply_mode(monkeypatch, tmp_path):
             return None
 
         def after(self, _ms, fn):
-            fn()
+            if _ms == 0:
+                fn()
+            return None
 
         def mainloop(self):
             return None
@@ -646,11 +650,20 @@ def test_gui_smoke_load_and_apply_mode(monkeypatch, tmp_path):
             self.command = kwargs.get("command")
             self.text = kwargs.get("text")
             self.textvariable = kwargs.get("textvariable")
-            self.state = kwargs.get("state")
-            if self.text in {"选择", "载入", "保存", "应用模式并保存", "启动"}:
+            self.state = kwargs.get("state", "normal")
+            if self.text in {"选择", "载入", "保存", "应用模式并保存", "清空日志", "启动", "停止"}:
                 created_buttons.append(self)
 
         def pack(self, *_args, **_kwargs):
+            return None
+
+        def grid(self, *_args, **_kwargs):
+            return None
+
+        def add(self, *_args, **_kwargs):
+            return None
+
+        def columnconfigure(self, *_args, **_kwargs):
             return None
 
         def configure(self, **kwargs):
@@ -663,26 +676,42 @@ def test_gui_smoke_load_and_apply_mode(monkeypatch, tmp_path):
         def __init__(self, *_args, **_kwargs):
             super().__init__()
             self._text = ""
-            editor_ref["obj"] = self
+            editor_ref["texts"].append(self)
 
         def delete(self, *_args, **_kwargs):
+            if self.state == "disabled":
+                return None
             self._text = ""
 
         def insert(self, _index, text):
+            if self.state == "disabled":
+                return None
             self._text = self._text + text
 
         def get(self, *_args, **_kwargs):
             return self._text
 
+        def see(self, *_args, **_kwargs):
+            return None
+
     tkinter_mod = types.ModuleType("tkinter")
     tkinter_mod.Tk = DummyTk
     tkinter_mod.StringVar = DummyVar
+    tkinter_mod.BooleanVar = DummyVar
+    tkinter_mod.BooleanVar = DummyVar
+    tkinter_mod.BooleanVar = DummyVar
+    tkinter_mod.BooleanVar = DummyVar
+    tkinter_mod.BooleanVar = DummyVar
+    tkinter_mod.BooleanVar = DummyVar
+    tkinter_mod.BooleanVar = DummyVar
 
     ttk_mod = types.ModuleType("tkinter.ttk")
+    ttk_mod.Panedwindow = DummyWidget
     ttk_mod.Frame = DummyWidget
     ttk_mod.Label = DummyWidget
     ttk_mod.Entry = DummyWidget
     ttk_mod.Button = DummyWidget
+    ttk_mod.Checkbutton = DummyWidget
     ttk_mod.Combobox = DummyWidget
     tkinter_mod.ttk = ttk_mod
 
@@ -706,6 +735,9 @@ def test_gui_smoke_load_and_apply_mode(monkeypatch, tmp_path):
     gui_module.run_gui()
 
     assert config_path.exists()
+    assert len(editor_ref["texts"]) >= 1
+    log_view = editor_ref["texts"][0]
+    assert log_view.state == "disabled"
     apply_buttons = [b for b in created_buttons if b.text == "应用模式并保存"]
     assert apply_buttons
     assert callable(apply_buttons[0].command)
@@ -725,6 +757,411 @@ def test_gui_smoke_load_and_apply_mode(monkeypatch, tmp_path):
     monkeypatch.setattr(gui_module, "_write_text", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("no write")))
     start_buttons[0].command()
 
-    editor = editor_ref["obj"]
-    editor._text = "{invalid json"
-    apply_buttons[0].command()
+    log_view._text = "X"
+    clear_buttons = [b for b in created_buttons if b.text == "清空日志"]
+    assert clear_buttons and callable(clear_buttons[0].command)
+    clear_buttons[0].command()
+    assert log_view._text == ""
+
+    stop_buttons = [b for b in created_buttons if b.text == "停止"]
+    assert stop_buttons and callable(stop_buttons[0].command)
+
+
+def test_gui_default_config_path_picks_existing(monkeypatch, tmp_path):
+    from mobile import gui as gui_module
+
+    mobile_dir = tmp_path / "mobile"
+    mobile_dir.mkdir()
+    (mobile_dir / "config.local.jsonc").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(gui_module, "_repo_root", lambda: tmp_path)
+
+    assert gui_module._default_config_path().name == "config.local.jsonc"
+
+    (mobile_dir / "config.jsonc").write_text("{}", encoding="utf-8")
+    assert gui_module._default_config_path().name == "config.jsonc"
+
+
+def test_gui_log_handler_and_stream_capture(tmp_path):
+    from mobile import gui as gui_module
+
+    q = Queue()
+    handler = gui_module._QueueLogHandler(q)
+    handler.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
+
+    logger = logging.getLogger("mobile.gui.capture.test")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    installed = gui_module._install_log_handler(handler)
+    try:
+        logger.info("hello")
+        assert "INFO:hello" in q.get(timeout=1)
+
+        stream = gui_module._StreamToQueue(q, prefix="[P] ")
+        assert stream.write("x") == 1
+        assert q.get(timeout=1) == "[P] x"
+        stream.flush()
+    finally:
+        gui_module._remove_log_handler(handler, installed)
+
+
+def test_gui_log_handler_emit_format_failure():
+    from mobile import gui as gui_module
+
+    q = Queue()
+    handler = gui_module._QueueLogHandler(q)
+
+    def _boom(_record):
+        raise RuntimeError("boom")
+
+    handler.format = _boom
+    record = logging.LogRecord(
+        name="x",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="hi",
+        args=(),
+        exc_info=None,
+    )
+    handler.emit(record)
+    assert "hi" in q.get(timeout=1)
+
+    stream = gui_module._StreamToQueue(q, prefix="")
+    assert stream.write("") == 0
+
+
+def test_gui_install_remove_handler_idempotent(monkeypatch):
+    from mobile import gui as gui_module
+
+    q = Queue()
+    handler = gui_module._QueueLogHandler(q)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+
+    root_logger = logging.getLogger()
+    root_logger.addHandler(handler)
+    try:
+        installed = gui_module._install_log_handler(handler)
+        assert "" not in installed
+    finally:
+        root_logger.removeHandler(handler)
+
+    logger = logging.getLogger("mobile.gui.idempotent")
+    logger.addHandler(handler)
+    try:
+        installed = gui_module._install_log_handler(handler)
+        assert "mobile.gui.idempotent" not in installed
+
+        def _boom(_h):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(logger, "removeHandler", _boom)
+        gui_module._remove_log_handler(handler, ["mobile.gui.idempotent"])
+    finally:
+        try:
+            logger.removeHandler(handler)
+        except Exception:
+            pass
+
+
+def test_gui_import_fallback_branch(monkeypatch, tmp_path):
+    import builtins
+
+    from mobile import gui as gui_module
+
+    mobile_dir = tmp_path / "mobile"
+    mobile_dir.mkdir()
+    (mobile_dir / "config.example.jsonc").write_text(
+        json.dumps(
+            {
+                "keyword": "test",
+                "users": ["张三"],
+                "city": "北京",
+                "date": "01.01",
+                "price": "100元",
+                "price_index": 0,
+                "if_commit_order": False,
+                "probe_only": True,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(gui_module, "_repo_root", lambda: tmp_path)
+
+    dummy_config = types.ModuleType("config")
+    dummy_config._strip_jsonc_comments = lambda text: text
+    dummy_config.runtime_mode_flags_from_key = lambda _k: (True, False)
+    dummy_config.runtime_mode_key_from_dict = lambda _d: "probe"
+    monkeypatch.setitem(sys.modules, "config", dummy_config)
+
+    orig_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "mobile.config":
+            raise ImportError("blocked")
+        return orig_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    class DummyVar:
+        def __init__(self, value=""):
+            self._value = value
+
+        def get(self):
+            return self._value
+
+        def set(self, value):
+            self._value = value
+
+    class DummyTk:
+        def title(self, *_args, **_kwargs):
+            return None
+
+        def geometry(self, *_args, **_kwargs):
+            return None
+
+        def after(self, _ms, _fn):
+            return None
+
+        def mainloop(self):
+            return None
+
+    class DummyWidget:
+        def __init__(self, *_args, **kwargs):
+            self.command = kwargs.get("command")
+
+        def pack(self, *_args, **_kwargs):
+            return None
+
+        def grid(self, *_args, **_kwargs):
+            return None
+
+        def add(self, *_args, **_kwargs):
+            return None
+
+        def configure(self, **kwargs):
+            if "command" in kwargs:
+                self.command = kwargs["command"]
+            return None
+
+        def columnconfigure(self, *_args, **_kwargs):
+            return None
+
+    class DummyScrolledText(DummyWidget):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+            self._text = ""
+
+        def delete(self, *_args, **_kwargs):
+            self._text = ""
+
+        def insert(self, _index, text):
+            self._text = self._text + text
+
+        def get(self, *_args, **_kwargs):
+            return self._text
+
+        def see(self, *_args, **_kwargs):
+            return None
+
+    tkinter_mod = types.ModuleType("tkinter")
+    tkinter_mod.Tk = DummyTk
+    tkinter_mod.StringVar = DummyVar
+    tkinter_mod.BooleanVar = DummyVar
+
+    ttk_mod = types.ModuleType("tkinter.ttk")
+    ttk_mod.Panedwindow = DummyWidget
+    ttk_mod.Frame = DummyWidget
+    ttk_mod.Label = DummyWidget
+    ttk_mod.Entry = DummyWidget
+    ttk_mod.Button = DummyWidget
+    ttk_mod.Checkbutton = DummyWidget
+    ttk_mod.Combobox = DummyWidget
+    tkinter_mod.ttk = ttk_mod
+
+    filedialog_mod = types.ModuleType("tkinter.filedialog")
+    filedialog_mod.askopenfilename = lambda **_kwargs: ""
+    tkinter_mod.filedialog = filedialog_mod
+
+    messagebox_mod = types.ModuleType("tkinter.messagebox")
+    messagebox_mod.showerror = lambda *_args, **_kwargs: None
+    tkinter_mod.messagebox = messagebox_mod
+
+    scrolledtext_mod = types.ModuleType("tkinter.scrolledtext")
+    scrolledtext_mod.ScrolledText = DummyScrolledText
+
+    monkeypatch.setitem(sys.modules, "tkinter", tkinter_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.ttk", ttk_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.filedialog", filedialog_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.messagebox", messagebox_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.scrolledtext", scrolledtext_mod)
+
+    gui_module.run_gui()
+
+
+def test_gui_start_and_stop_buttons_smoke(monkeypatch, tmp_path):
+    from mobile import gui as gui_module
+
+    mobile_dir = tmp_path / "mobile"
+    mobile_dir.mkdir()
+    (mobile_dir / "config.example.jsonc").write_text(
+        json.dumps(
+            {
+                "serial": None,
+                "app_package": "cn.damai",
+                "app_activity": ".launcher.splash.SplashMainActivity",
+                "keyword": "test",
+                "users": ["张三"],
+                "city": "北京",
+                "date": "01.01",
+                "price": "100元",
+                "price_index": 0,
+                "if_commit_order": False,
+                "probe_only": True,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(gui_module, "_repo_root", lambda: tmp_path)
+
+    created_buttons = []
+
+    class DummyVar:
+        def __init__(self, value=""):
+            self._value = value
+
+        def get(self):
+            return self._value
+
+        def set(self, value):
+            self._value = value
+
+    class DummyTk:
+        def title(self, *_args, **_kwargs):
+            return None
+
+        def geometry(self, *_args, **_kwargs):
+            return None
+
+        def after(self, _ms, fn):
+            if _ms == 0:
+                fn()
+            return None
+
+        def mainloop(self):
+            return None
+
+    class DummyWidget:
+        def __init__(self, *_args, **kwargs):
+            self.command = kwargs.get("command")
+            self.text = kwargs.get("text")
+            self.state = kwargs.get("state", "normal")
+            if self.text in {"启动", "停止"}:
+                created_buttons.append(self)
+
+        def pack(self, *_args, **_kwargs):
+            return None
+
+        def grid(self, *_args, **_kwargs):
+            return None
+
+        def add(self, *_args, **_kwargs):
+            return None
+
+        def columnconfigure(self, *_args, **_kwargs):
+            return None
+
+        def configure(self, **kwargs):
+            if "command" in kwargs:
+                self.command = kwargs["command"]
+            if "state" in kwargs:
+                self.state = kwargs["state"]
+            return None
+
+    class DummyScrolledText(DummyWidget):
+        def __init__(self, *_args, **_kwargs):
+            super().__init__()
+            self._text = ""
+
+        def delete(self, *_args, **_kwargs):
+            self._text = ""
+
+        def insert(self, _index, text):
+            self._text = self._text + text
+
+        def get(self, *_args, **_kwargs):
+            return self._text
+
+        def see(self, *_args, **_kwargs):
+            return None
+
+    tkinter_mod = types.ModuleType("tkinter")
+    tkinter_mod.Tk = DummyTk
+    tkinter_mod.StringVar = DummyVar
+    tkinter_mod.BooleanVar = DummyVar
+
+    ttk_mod = types.ModuleType("tkinter.ttk")
+    ttk_mod.Panedwindow = DummyWidget
+    ttk_mod.Frame = DummyWidget
+    ttk_mod.Label = DummyWidget
+    ttk_mod.Entry = DummyWidget
+    ttk_mod.Button = DummyWidget
+    ttk_mod.Checkbutton = DummyWidget
+    ttk_mod.Combobox = DummyWidget
+    tkinter_mod.ttk = ttk_mod
+
+    filedialog_mod = types.ModuleType("tkinter.filedialog")
+    filedialog_mod.askopenfilename = lambda **_kwargs: ""
+    tkinter_mod.filedialog = filedialog_mod
+
+    messagebox_mod = types.ModuleType("tkinter.messagebox")
+    messagebox_mod.showerror = lambda *_args, **_kwargs: None
+    tkinter_mod.messagebox = messagebox_mod
+
+    scrolledtext_mod = types.ModuleType("tkinter.scrolledtext")
+    scrolledtext_mod.ScrolledText = DummyScrolledText
+
+    monkeypatch.setitem(sys.modules, "tkinter", tkinter_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.ttk", ttk_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.filedialog", filedialog_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.messagebox", messagebox_mod)
+    monkeypatch.setitem(sys.modules, "tkinter.scrolledtext", scrolledtext_mod)
+
+    dummy_damai_app = types.ModuleType("mobile.damai_app")
+
+    class DummyDriver:
+        def quit(self):
+            return None
+
+    class DummyBot:
+        def __init__(self, *_args, **_kwargs):
+            self.driver = DummyDriver()
+
+        def run_with_retry(self, *_args, **_kwargs):
+            return True
+
+    dummy_damai_app.DamaiBot = DummyBot
+    monkeypatch.setitem(sys.modules, "mobile.damai_app", dummy_damai_app)
+
+    class ImmediateThread:
+        def __init__(self, target=None, daemon=None):
+            self._target = target
+
+        def start(self):
+            if self._target:
+                self._target()
+
+    monkeypatch.setattr(gui_module.threading, "Thread", ImmediateThread)
+
+    gui_module.run_gui()
+
+    start_buttons = [b for b in created_buttons if b.text == "启动"]
+    stop_buttons = [b for b in created_buttons if b.text == "停止"]
+    assert start_buttons and callable(start_buttons[0].command)
+    assert stop_buttons and callable(stop_buttons[0].command)
+
+    start_buttons[0].command()
+    stop_buttons[0].command()
