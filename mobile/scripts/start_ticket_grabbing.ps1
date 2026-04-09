@@ -7,12 +7,13 @@ function Resolve-FullPath([string]$Target) {
     return [System.IO.Path]::GetFullPath((Join-Path -Path (Get-Location) -ChildPath $Target))
 }
 
-function Find-AndroidHome() {
+function Find-AndroidHome([string]$RootDir) {
     if ($env:ANDROID_HOME -and $env:ANDROID_HOME.Trim()) {
         return $env:ANDROID_HOME.Trim()
     }
 
     $candidates = @(
+        $RootDir,
         (Join-Path $env:LOCALAPPDATA "Android\Sdk"),
         (Join-Path $env:USERPROFILE "AppData\Local\Android\Sdk"),
         "C:\Android\Sdk"
@@ -20,7 +21,10 @@ function Find-AndroidHome() {
 
     foreach ($candidate in $candidates) {
         if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Container)) {
-            return $candidate
+            $adbPath = Join-Path $candidate "platform-tools\adb.exe"
+            if (Test-Path -LiteralPath $adbPath -PathType Leaf) {
+                return $candidate
+            }
         }
     }
 
@@ -98,17 +102,21 @@ if ($ProbeMode) {
     Write-Host "🎫 启动大麦抢票脚本..."
 }
 
-$androidHome = Find-AndroidHome
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$mobileDir = Resolve-FullPath (Join-Path $scriptDir "..")
+$rootDir = Resolve-FullPath (Join-Path $scriptDir "..\..")
+
+$androidHome = Find-AndroidHome $rootDir
 if (-not $androidHome) {
     Write-Host "❌ 未找到 Android SDK，请设置 ANDROID_HOME 环境变量"
     exit 1
 }
 $env:ANDROID_HOME = $androidHome
 $env:ANDROID_SDK_ROOT = $androidHome
-
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$mobileDir = Resolve-FullPath (Join-Path $scriptDir "..")
-$rootDir = Resolve-FullPath (Join-Path $scriptDir "..\..")
+$platformTools = Join-Path $androidHome "platform-tools"
+if ($env:PATH -notmatch [regex]::Escape($platformTools)) {
+    $env:PATH = "$platformTools;$env:PATH"
+}
 
 $defaultConfigFile = Join-Path $mobileDir "config.jsonc"
 if ($ConfigOverride) {
@@ -266,6 +274,11 @@ try {
     $venvPython = Join-Path $rootDir ".venv\Scripts\python.exe"
     if (Test-Path -LiteralPath $venvPython -PathType Leaf) {
         & $venvPython "damai_app.py"
+        exit $LASTEXITCODE
+    }
+
+    if ($pythonBin) {
+        & $pythonBin "damai_app.py"
         exit $LASTEXITCODE
     }
 

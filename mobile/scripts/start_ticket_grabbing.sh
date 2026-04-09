@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 # 大麦抢票 - 启动脚本
 # 使用方法:
 #   正式抢票: ./start_ticket_grabbing.sh [--yes] [--config mobile/config.local.jsonc]
@@ -52,9 +52,16 @@ else
     echo "🎫 启动大麦抢票脚本..."
 fi
 
+# 解析目录，确保从任意目录执行都能找到配置文件与虚拟环境
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MOBILE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
 # 设置Android环境变量（优先使用已有环境变量，否则自动检测常见路径）
 if [ -z "$ANDROID_HOME" ]; then
-    if [ -d "$HOME/Library/Android/sdk" ]; then
+    if [ -d "$ROOT_DIR/platform-tools" ] && [ -x "$ROOT_DIR/platform-tools/adb" ]; then
+        export ANDROID_HOME="$ROOT_DIR"
+    elif [ -d "$HOME/Library/Android/sdk" ]; then
         export ANDROID_HOME="$HOME/Library/Android/sdk"
     elif [ -d "$HOME/Android/Sdk" ]; then
         export ANDROID_HOME="$HOME/Android/Sdk"
@@ -66,11 +73,8 @@ if [ -z "$ANDROID_HOME" ]; then
     fi
 fi
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export PATH="$ANDROID_HOME/platform-tools:$PATH"
 
-# 解析目录，确保从任意目录执行都能找到配置文件与虚拟环境
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MOBILE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DEFAULT_CONFIG_FILE="$MOBILE_DIR/config.jsonc"
 if [ -n "$CONFIG_OVERRIDE" ]; then
     CONFIG_FILE="$CONFIG_OVERRIDE"
@@ -119,7 +123,12 @@ extract_bool_flag() {
     fi
 }
 
-if ! adb devices 2>/dev/null | grep -q "device$"; then
+ADB_CMD="adb"
+if [ -x "$ANDROID_HOME/platform-tools/adb" ]; then
+    ADB_CMD="$ANDROID_HOME/platform-tools/adb"
+fi
+
+if ! "$ADB_CMD" devices 2>/dev/null | grep -q "device$"; then
     echo "❌ 未检测到已连接的 Android 设备"
     echo "   请通过 USB 连接设备并开启 USB 调试模式"
     exit 1

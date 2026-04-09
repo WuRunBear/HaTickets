@@ -10,4 +10,15 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 cd "$REPO_ROOT"
-poetry run python mobile/prompt_runner.py "$@"
+if [ -x "$REPO_ROOT/.venv/bin/python" ]; then
+    "$REPO_ROOT/.venv/bin/python" mobile/prompt_runner.py "$@"
+elif command -v poetry >/dev/null 2>&1; then
+    poetry run python mobile/prompt_runner.py "$@"
+elif command -v python3 >/dev/null 2>&1; then
+    python3 mobile/prompt_runner.py "$@"
+elif command -v python >/dev/null 2>&1; then
+    python mobile/prompt_runner.py "$@"
+else
+    echo "❌ 未找到可用的 Python 环境"
+    exit 1
+fi
