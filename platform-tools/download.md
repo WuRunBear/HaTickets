@@ -1,1 +1,1 @@
-Invoke-WebRequest -Uri "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile "platform-tools.zip"; Expand-Archive -Path "platform-tools.zip" -DestinationPath "." -Force; Remove-Item "platform-tools.zip";
+Invoke-WebRequest -Uri "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile "adb.zip"; Expand-Archive -Path "adb.zip" -DestinationPath "." -Force; Remove-Item "adb.zip";
