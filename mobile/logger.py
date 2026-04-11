@@ -9,6 +9,7 @@ Usage:
 """
 import logging
 import os
+import sys
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Set
 
@@ -71,14 +72,20 @@ def _supports_color(stream) -> bool:
     return os.environ.get("TERM", "").lower() != "dumb"
 
 
-def _build_console_handler() -> logging.StreamHandler:
-    handler = logging.StreamHandler()
+def _build_console_handler() -> logging.Handler:
+    stream = getattr(sys, "stderr", None) or getattr(sys, "stdout", None)
+    if stream is None:
+        handler = logging.NullHandler()
+        handler.setLevel(logging.INFO)
+        return handler
+
+    handler = logging.StreamHandler(stream)
     handler.setLevel(logging.INFO)
     handler.setFormatter(
         _ShanghaiColorFormatter(
             fmt=_CONSOLE_FORMAT,
             datefmt=_DATE_FORMAT,
-            enable_color=_supports_color(getattr(handler, "stream", None)),
+            enable_color=_supports_color(stream),
         )
     )
     return handler

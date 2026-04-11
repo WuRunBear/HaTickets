@@ -3,6 +3,8 @@
 import os
 import sys
 
+from PyInstaller.utils.hooks import collect_data_files
+
 block_cipher = None
 
 _CONDA_ROOT = sys.base_prefix
@@ -39,6 +41,8 @@ _datas = [
 for src, dest in _adb_files:
     if os.path.exists(src):
         _datas.append((src, dest))
+
+_datas += collect_data_files("uiautomator2")
 
 a = Analysis(
     ['hatickets_cli_entry.py'],

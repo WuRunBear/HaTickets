@@ -104,6 +104,7 @@ class DamaiBot(UIPrimitives):
         self.driver = None
         self.d = None
         self.wait = None
+        self.cancel_event = None
         self._terminal_failure_reason = None
         self._last_run_outcome = None
         self._last_discovery_step_timings = []
@@ -1548,6 +1549,25 @@ class DamaiBot(UIPrimitives):
                     return False
 
             if self.config.probe_only:
+                if hasattr(self, "_page_probe"):
+                    self._page_probe.invalidate_cache()
+                    page_probe = self.probe_current_page(fast=False)
+                    for _ in range(3):
+                        if (
+                            page_probe.get("state") == "detail_page"
+                            and page_probe.get("purchase_button", False)
+                            and page_probe.get("price_container", False)
+                        ):
+                            break
+                        if (
+                            page_probe.get("state") == "sku_page"
+                            and page_probe.get("price_container", False)
+                        ):
+                            break
+                        time.sleep(0.25)
+                        self._page_probe.invalidate_cache()
+                        page_probe = self.probe_current_page(fast=False)
+
                 detail_ready = (
                     page_probe.get("state") == "detail_page"
                     and page_probe.get("purchase_button", False)
@@ -1691,7 +1711,7 @@ class DamaiBot(UIPrimitives):
 
             # 5. 确定购买 — brief wait for price selection to register.
             # Damai App ignores confirm clicks until btn_buy_view becomes clickable (price > 0).
-            time.sleep(0.15 if self.config.rush_mode else 0.5)
+            time.sleep(0.05 if self.config.rush_mode else 0.5)
             logger.info("确定购买...")
             submit_ready = False
             confirm_deadline = time.time() + (4.0 if self.config.rush_mode else 1.8)
@@ -1860,6 +1880,10 @@ class DamaiBot(UIPrimitives):
     def run_with_retry(self, max_retries=3, initial_page_probe=None):
         """带重试机制的抢票"""
         for attempt in range(max_retries):
+            if self.cancel_event is not None and self.cancel_event.is_set():
+                logger.info("已取消运行，停止后续重试")
+                self._set_run_outcome("cancelled")
+                return False
             logger.info(f"第 {attempt + 1} 次尝试（{self._execution_mode_label()}）...")
             # Pass initial_page_probe only on the first attempt; retries must re-probe.
             probe = initial_page_probe if attempt == 0 else None
@@ -1875,6 +1899,10 @@ class DamaiBot(UIPrimitives):
 
             # Fast retry within same session
             for fast_attempt in range(self.config.fast_retry_count):
+                if self.cancel_event is not None and self.cancel_event.is_set():
+                    logger.info("已取消运行，停止快速重试")
+                    self._set_run_outcome("cancelled")
+                    return False
                 logger.info(
                     f"快速重试 {fast_attempt + 1}/{self.config.fast_retry_count}"
                     f"（{self._execution_mode_label()}）..."

@@ -474,12 +474,18 @@ def run_gui(config_path=None):
 
                 cfg = Config.load_config(str(path))
                 bot = DamaiBot(config=cfg, setup_driver=True)
+                bot.cancel_event = cancel_event
                 with bot_ref_lock:
                     bot_ref["bot"] = bot
                 if cancel_event.is_set():
                     raise RuntimeError("已取消")
-                bot.run_with_retry()
-                root.after(0, lambda: status_var.set("运行结束"))
+                ok = bot.run_with_retry()
+                if cancel_event.is_set():
+                    root.after(0, lambda: status_var.set("已取消"))
+                elif ok:
+                    root.after(0, lambda: status_var.set("运行结束"))
+                else:
+                    root.after(0, lambda: status_var.set("运行失败"))
             except Exception as exc:
                 log_queue.put(traceback.format_exc() + "\n")
                 fail_message = f"运行失败: {exc}"
@@ -509,9 +515,12 @@ def run_gui(config_path=None):
     run_btn.configure(command=run_bot)
 
     def stop_bot():
+        if cancel_event.is_set():
+            return
         cancel_event.set()
         log_queue.put("已请求停止任务，正在尝试中断...\n")
         status_var.set("已请求停止")
+        stop_btn.configure(state="disabled")
         with bot_ref_lock:
             bot = bot_ref.get("bot")
         try:

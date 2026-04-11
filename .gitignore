@@ -49,3 +49,5 @@ mobile/tmp_*.png
 mobile/tmp_*.xml
 
 platform-tools/adb/*
+
+build
