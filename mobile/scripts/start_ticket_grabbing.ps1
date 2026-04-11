@@ -22,7 +22,8 @@ function Find-AndroidHome([string]$RootDir) {
     foreach ($candidate in $candidates) {
         if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Container)) {
             $adbPath = Join-Path $candidate "platform-tools\adb.exe"
-            if (Test-Path -LiteralPath $adbPath -PathType Leaf) {
+            $adbPathNested = Join-Path $candidate "platform-tools\adb\adb.exe"
+            if ((Test-Path -LiteralPath $adbPath -PathType Leaf) -or (Test-Path -LiteralPath $adbPathNested -PathType Leaf)) {
                 return $candidate
             }
         }
@@ -36,6 +37,10 @@ function Get-AdbCommand([string]$AndroidHome) {
         $adb = Join-Path $AndroidHome "platform-tools\adb.exe"
         if (Test-Path -LiteralPath $adb -PathType Leaf) {
             return $adb
+        }
+        $adbNested = Join-Path $AndroidHome "platform-tools\adb\adb.exe"
+        if (Test-Path -LiteralPath $adbNested -PathType Leaf) {
+            return $adbNested
         }
     }
     return "adb"
@@ -114,8 +119,14 @@ if (-not $androidHome) {
 $env:ANDROID_HOME = $androidHome
 $env:ANDROID_SDK_ROOT = $androidHome
 $platformTools = Join-Path $androidHome "platform-tools"
+$platformToolsAdb = Join-Path $platformTools "adb"
 if ($env:PATH -notmatch [regex]::Escape($platformTools)) {
     $env:PATH = "$platformTools;$env:PATH"
+}
+if (Test-Path -LiteralPath $platformToolsAdb -PathType Container) {
+    if ($env:PATH -notmatch [regex]::Escape($platformToolsAdb)) {
+        $env:PATH = "$platformToolsAdb;$env:PATH"
+    }
 }
 
 $defaultConfigFile = Join-Path $mobileDir "config.jsonc"
@@ -139,7 +150,13 @@ if ($configFile -ne $defaultConfigFile) {
 }
 
 $adb = Get-AdbCommand $androidHome
-$deviceOutput = & $adb devices 2>$null
+$previousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+    $deviceOutput = & $adb devices 2>&1
+} finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
 $deviceLines = @($deviceOutput | Where-Object { $_ -match '^\S+\s+device$' })
 if ($deviceLines.Count -lt 1) {
     Write-Host "❌ 未检测到已连接的 Android 设备"

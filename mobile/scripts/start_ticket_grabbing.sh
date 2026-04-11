@@ -59,7 +59,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # 设置Android环境变量（优先使用已有环境变量，否则自动检测常见路径）
 if [ -z "$ANDROID_HOME" ]; then
-    if [ -d "$ROOT_DIR/platform-tools" ] && [ -x "$ROOT_DIR/platform-tools/adb" ]; then
+    if [ -d "$ROOT_DIR/platform-tools" ] && { [ -x "$ROOT_DIR/platform-tools/adb" ] || [ -x "$ROOT_DIR/platform-tools/adb/adb" ]; }; then
         export ANDROID_HOME="$ROOT_DIR"
     elif [ -d "$HOME/Library/Android/sdk" ]; then
         export ANDROID_HOME="$HOME/Library/Android/sdk"
@@ -73,7 +73,7 @@ if [ -z "$ANDROID_HOME" ]; then
     fi
 fi
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
-export PATH="$ANDROID_HOME/platform-tools:$PATH"
+export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/platform-tools/adb:$PATH"
 
 DEFAULT_CONFIG_FILE="$MOBILE_DIR/config.jsonc"
 if [ -n "$CONFIG_OVERRIDE" ]; then
@@ -124,7 +124,9 @@ extract_bool_flag() {
 }
 
 ADB_CMD="adb"
-if [ -x "$ANDROID_HOME/platform-tools/adb" ]; then
+if [ -x "$ANDROID_HOME/platform-tools/adb/adb" ]; then
+    ADB_CMD="$ANDROID_HOME/platform-tools/adb/adb"
+elif [ -x "$ANDROID_HOME/platform-tools/adb" ]; then
     ADB_CMD="$ANDROID_HOME/platform-tools/adb"
 fi
 

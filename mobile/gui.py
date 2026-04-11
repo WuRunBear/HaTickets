@@ -482,7 +482,8 @@ def run_gui(config_path=None):
                 root.after(0, lambda: status_var.set("运行结束"))
             except Exception as exc:
                 log_queue.put(traceback.format_exc() + "\n")
-                root.after(0, lambda: status_var.set(f"运行失败: {exc}"))
+                fail_message = f"运行失败: {exc}"
+                root.after(0, lambda m=fail_message: status_var.set(m))
             finally:
                 with bot_ref_lock:
                     bot_ref["bot"] = None

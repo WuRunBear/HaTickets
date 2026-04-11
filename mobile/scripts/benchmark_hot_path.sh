@@ -45,7 +45,16 @@ else
     CONFIG_FILE="$DEFAULT_CONFIG_FILE"
 fi
 
-if ! adb devices 2>/dev/null | grep -q "device$"; then
+ADB_CMD="adb"
+if [ -x "$REPO_ROOT/platform-tools/adb/adb" ]; then
+    ADB_CMD="$REPO_ROOT/platform-tools/adb/adb"
+elif [ -x "$REPO_ROOT/platform-tools/adb/adb.exe" ]; then
+    ADB_CMD="$REPO_ROOT/platform-tools/adb/adb.exe"
+elif [ -n "$ANDROID_HOME" ] && [ -x "$ANDROID_HOME/platform-tools/adb" ]; then
+    ADB_CMD="$ANDROID_HOME/platform-tools/adb"
+fi
+
+if ! "$ADB_CMD" devices 2>/dev/null | grep -q "device$"; then
     echo "❌ 未检测到已连接的 Android 设备"
     echo "   请通过 USB 连接设备并开启 USB 调试模式"
     exit 1
@@ -70,4 +79,12 @@ echo "   本脚本会强制使用安全模式: if_commit_order=false, auto_navig
 echo "   会输出每一步日志和相邻步骤耗时（+Xs）"
 echo ""
 
-HATICKETS_CONFIG_PATH="$CONFIG_FILE" poetry run python mobile/hot_path_benchmark.py "${ARGS[@]}"
+if [ -x "$REPO_ROOT/.venv/bin/python" ]; then
+    HATICKETS_CONFIG_PATH="$CONFIG_FILE" "$REPO_ROOT/.venv/bin/python" mobile/hot_path_benchmark.py "${ARGS[@]}"
+elif command -v poetry >/dev/null 2>&1; then
+    HATICKETS_CONFIG_PATH="$CONFIG_FILE" poetry run python mobile/hot_path_benchmark.py "${ARGS[@]}"
+elif command -v python3 >/dev/null 2>&1; then
+    HATICKETS_CONFIG_PATH="$CONFIG_FILE" python3 mobile/hot_path_benchmark.py "${ARGS[@]}"
+else
+    HATICKETS_CONFIG_PATH="$CONFIG_FILE" python mobile/hot_path_benchmark.py "${ARGS[@]}"
+fi
