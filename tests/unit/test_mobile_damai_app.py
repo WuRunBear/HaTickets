@@ -12,7 +12,11 @@ from mobile.ui_primitives import ANDROID_UIAUTOMATOR
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 
-from mobile.damai_app import DamaiBot, logger as damai_logger
+from mobile.damai_app import (
+    DamaiBot,
+    OperationCancelled,
+    logger as damai_logger,
+)
 from mobile.ui_primitives import logger as ui_primitives_logger
 from mobile.config import Config
 from mobile.item_resolver import DamaiItemDetail
@@ -98,6 +102,18 @@ def _make_absent_selector():
     sel.wait = Mock(return_value=False)
     sel.count = 0
     return sel
+
+
+class _ImmediateCancelEvent:
+    def __init__(self):
+        self._is_set = False
+
+    def is_set(self):
+        return self._is_set
+
+    def wait(self, _timeout):
+        self._is_set = True
+        return True
 
 
 @pytest.fixture
@@ -692,6 +708,14 @@ class TestRunTicketGrabbing:
                         "submit_button": False,
                         "reservation_mode": False,
                     },
+                    {
+                        "state": "detail_page",
+                        "purchase_button": True,
+                        "price_container": True,
+                        "quantity_picker": False,
+                        "submit_button": False,
+                        "reservation_mode": False,
+                    },
                 ],
             ), \
             patch("mobile.damai_app.time") as mock_time:
@@ -925,9 +949,7 @@ class TestRunTicketGrabbing:
         assert result is True
         enter_purchase_flow.assert_called_once_with(prepared=False)
         select_price.assert_called_once_with(cached_coords=(240, 1560))
-        burst_click_coords.assert_called_with(
-            320, 1880, count=1, interval_ms=25, duration=25
-        )
+        burst_click_coords.assert_called_with(320, 1880, count=3, interval_ms=8, duration=8)
 
     def test_run_ticket_grabbing_stops_before_submit_when_commit_disabled(self, bot):
         """if_commit_order=False waits for confirm page but never clicks submit."""
@@ -1242,6 +1264,24 @@ class TestRunTicketGrabbing:
             result = bot.run_ticket_grabbing()
 
         assert result is False
+
+    def test_run_ticket_grabbing_cancelled_returns_false_without_error(self, bot, caplog):
+        with \
+            caplog.at_level("INFO", logger="mobile.damai_app"), \
+            patch.object(bot, "dismiss_startup_popups"), \
+            patch.object(bot, "check_session_valid", return_value=True), \
+            patch.object(
+                bot,
+                "wait_for_sale_start",
+                side_effect=OperationCancelled("已取消"),
+            ), \
+            patch("mobile.damai_app.time") as mock_time:
+            mock_time.time.return_value = 0.0
+            result = bot.run_ticket_grabbing(initial_page_probe={"state": "detail_page"})
+
+        assert result is False
+        assert bot._last_run_outcome == "cancelled"
+        assert "已取消当前抢票流程" in caplog.text
 
     def test_run_ticket_grabbing_submit_timeout_returns_false_and_marks_terminal_failure(
         self, bot
@@ -1592,10 +1632,10 @@ class TestPageStateHelpers:
             assert bot.run_ticket_grabbing(initial_page_probe=initial_probe) is True
 
         assert wait_ready.call_count == 2
-        burst_click.assert_called_once_with(
-            540, 2100, count=1, interval_ms=25, duration=25
-        )
-        element_click.assert_called_once_with(burst_count=1)
+        burst_click.assert_called_once_with(540, 2100, count=3, interval_ms=8, duration=8)
+        element_click.assert_called_once_with(burst_count=3, interval_ms=8)
+        assert wait_ready.call_args_list[0].kwargs["timeout"] == 0.15
+        assert wait_ready.call_args_list[1].kwargs["timeout"] <= 0.15
 
     def test_ensure_attendees_selected_auto_selects_missing_checkbox(self, bot):
         checked_state = {"value": "false"}
@@ -2234,6 +2274,12 @@ class TestRunWithRetry:
 
 
 class TestWaitForSaleStart:
+    def test_sleep_with_cancel_raises_immediately_when_cancel_requested(self, bot):
+        bot.cancel_event = _ImmediateCancelEvent()
+
+        with pytest.raises(OperationCancelled):
+            bot._sleep_with_cancel(5)
+
     def test_wait_for_sale_start_no_config(self, bot):
         """sell_start_time=None, returns immediately without sleeping."""
         bot.config.sell_start_time = None
@@ -2283,6 +2329,24 @@ class TestWaitForSaleStart:
         # First sleep should be ~7 seconds
         first_sleep_arg = mock_sleep.call_args_list[0][0][0]
         assert 6.5 < first_sleep_arg < 7.5
+
+    def test_wait_for_sale_start_raises_cancelled_during_long_wait(self, bot):
+        _tz = timezone(timedelta(hours=8))
+        future_time = datetime(2026, 6, 1, 20, 0, 10, tzinfo=_tz)
+        now_base = datetime(2026, 6, 1, 20, 0, 0, tzinfo=_tz)
+        bot.config.sell_start_time = future_time.isoformat()
+        bot.config.countdown_lead_ms = 3000
+        bot.cancel_event = _ImmediateCancelEvent()
+
+        with \
+            patch("mobile.damai_app.datetime") as mock_dt, \
+            patch("mobile.damai_app.time.sleep") as mock_sleep:
+            mock_dt.fromisoformat = datetime.fromisoformat
+            mock_dt.now.return_value = now_base
+            with pytest.raises(OperationCancelled):
+                bot.wait_for_sale_start()
+
+        mock_sleep.assert_not_called()
 
     def test_wait_for_sale_start_skips_cta_wait_without_sell_start_time(self, bot):
         bot.config.sell_start_time = None

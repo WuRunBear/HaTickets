@@ -376,15 +376,15 @@ def run_gui(config_path=None):
     row += 1
     _add_row(row, "演出链接（可空）", ttk.Entry(form, textvariable=var_item_url))
     row += 1
-    _add_row(row, "搜索关键词", ttk.Entry(form, textvariable=var_keyword))
+    _add_row(row, "搜索关键词（可空）", ttk.Entry(form, textvariable=var_keyword))
     row += 1
-    _add_row(row, "观演人姓名（逗号分隔）", ttk.Entry(form, textvariable=var_users))
+    _add_row(row, "观演人姓名（英文逗号分隔）", ttk.Entry(form, textvariable=var_users))
     row += 1
-    _add_row(row, "城市", ttk.Entry(form, textvariable=var_city))
+    _add_row(row, "城市（可空）", ttk.Entry(form, textvariable=var_city))
     row += 1
-    _add_row(row, "场次日期", ttk.Entry(form, textvariable=var_date))
+    _add_row(row, "场次日期（可空）", ttk.Entry(form, textvariable=var_date))
     row += 1
-    _add_row(row, "票档文本", ttk.Entry(form, textvariable=var_price))
+    _add_row(row, "票档文本（基本无用）", ttk.Entry(form, textvariable=var_price))
     row += 1
     _add_row(row, "票档索引（从 0 开始）", ttk.Entry(form, textvariable=var_price_index))
     row += 1
@@ -487,9 +487,12 @@ def run_gui(config_path=None):
                 else:
                     root.after(0, lambda: status_var.set("运行失败"))
             except Exception as exc:
-                log_queue.put(traceback.format_exc() + "\n")
-                fail_message = f"运行失败: {exc}"
-                root.after(0, lambda m=fail_message: status_var.set(m))
+                if cancel_event.is_set():
+                    root.after(0, lambda: status_var.set("已取消"))
+                else:
+                    log_queue.put(traceback.format_exc() + "\n")
+                    fail_message = f"运行失败: {exc}"
+                    root.after(0, lambda m=fail_message: status_var.set(m))
             finally:
                 with bot_ref_lock:
                     bot_ref["bot"] = None

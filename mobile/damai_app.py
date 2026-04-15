@@ -97,6 +97,10 @@ _MANUAL_STEP_BASELINES = {
 }
 
 
+class OperationCancelled(RuntimeError):
+    pass
+
+
 class DamaiBot(UIPrimitives):
     def __init__(self, config=None, setup_driver=True):
         self.config = config or Config.load_config()
@@ -154,6 +158,26 @@ class DamaiBot(UIPrimitives):
         self._pipeline.set_bot(self)
         self._pipeline._cached_coords = self._cached_hot_path_coords
         self._pipeline._cached_no_match = self._cached_hot_path_no_match
+
+    def _is_cancel_requested(self):
+        return self.cancel_event is not None and self.cancel_event.is_set()
+
+    def _raise_if_cancelled(self):
+        if self._is_cancel_requested():
+            self._set_run_outcome("cancelled")
+            raise OperationCancelled("已取消")
+
+    def _sleep_with_cancel(self, seconds):
+        sleep_seconds = max(0, seconds)
+        self._raise_if_cancelled()
+        if sleep_seconds <= 0:
+            return
+        if self.cancel_event is not None:
+            if self.cancel_event.wait(sleep_seconds):
+                self._raise_if_cancelled()
+            return
+        time.sleep(sleep_seconds)
+        self._raise_if_cancelled()
 
     _SOLD_OUT_RE = re.compile(r"缺货|售罄|无票")
 
@@ -305,11 +329,13 @@ class DamaiBot(UIPrimitives):
         last_probe = None
 
         while time.time() < deadline:
+            self._raise_if_cancelled()
             last_probe = self.probe_current_page(fast=True)
             if last_probe["state"] in expected_states:
                 return last_probe
-            time.sleep(poll_interval)
+            self._sleep_with_cancel(poll_interval)
 
+        self._raise_if_cancelled()
         return last_probe if last_probe is not None else self.probe_current_page()
 
     def _wait_for_purchase_entry_result(
@@ -322,6 +348,7 @@ class DamaiBot(UIPrimitives):
             skip_reservation_check = not self.config.if_commit_order
             deadline = time.time() + timeout
             while time.time() < deadline:
+                self._raise_if_cancelled()
                 if self._has_element(By.ID, "cn.damai:id/layout_sku"):
                     return {
                         "state": "sku_page",
@@ -332,7 +359,7 @@ class DamaiBot(UIPrimitives):
                     }
                 if self._has_element(By.ID, "cn.damai:id/checkbox"):
                     return {"state": "order_confirm_page", "submit_button": True}
-                time.sleep(poll_interval)
+                self._sleep_with_cancel(poll_interval)
             if fallback_probe_on_timeout:
                 return self.probe_current_page()
             return None
@@ -352,6 +379,7 @@ class DamaiBot(UIPrimitives):
 
         deadline = time.time() + timeout
         while time.time() < deadline:
+            self._raise_if_cancelled()
             if self._has_any_element(submit_selectors):
                 return {"state": "order_confirm_page", "submit_button": True}
             if self._has_any_element(sku_selectors):
@@ -360,7 +388,7 @@ class DamaiBot(UIPrimitives):
                     "price_container": True,
                     "reservation_mode": self.is_reservation_sku_mode(),
                 }
-            time.sleep(poll_interval)
+            self._sleep_with_cancel(poll_interval)
 
         if fallback_probe_on_timeout:
             return self.probe_current_page()
@@ -372,9 +400,10 @@ class DamaiBot(UIPrimitives):
             # 极速模式：单 ID 选择器轮询（~60ms/轮 vs 3选择器 ~180ms/轮）。
             deadline = time.time() + timeout
             while time.time() < deadline:
+                self._raise_if_cancelled()
                 if self._has_element(By.ID, "cn.damai:id/checkbox"):
                     return True
-                time.sleep(poll_interval)
+                self._sleep_with_cancel(poll_interval)
             return False
 
         submit_selectors = [
@@ -385,13 +414,14 @@ class DamaiBot(UIPrimitives):
 
         deadline = time.time() + timeout
         while time.time() < deadline:
+            self._raise_if_cancelled()
             if self._has_any_element(submit_selectors):
                 return True
-            time.sleep(poll_interval)
+            self._sleep_with_cancel(poll_interval)
 
         return False
 
-    def _click_sku_buy_button_element(self, burst_count=1):
+    def _click_sku_buy_button_element(self, burst_count=1, interval_ms=30):
         """Fallback to an element click for Damai's custom SKU buy button."""
         try:
             buy_button = self._find(By.ID, "cn.damai:id/btn_buy_view")
@@ -409,8 +439,17 @@ class DamaiBot(UIPrimitives):
                 if attempt == 0:
                     return False
             if attempt < burst_count - 1:
-                time.sleep(0.03)
+                time.sleep(max(0, interval_ms) / 1000)
         return True
+
+    def _sku_buy_click_plan(self):
+        if self.config.rush_mode:
+            if self.config.if_commit_order:
+                return 10, 8, 0.18
+            return 10, 8, 0.15
+        if self.config.if_commit_order:
+            return 10, 25, 1.0
+        return 1, 25, 1.0
 
     def _attendee_required_count_on_confirm_page(self):
         if hasattr(self, "_attendee_sel"):
@@ -592,7 +631,7 @@ class DamaiBot(UIPrimitives):
 
             if not self._press_keycode_safe(4, context="退出非目标演出页"):
                 break
-            time.sleep(back_delay)
+            self._sleep_with_cancel(back_delay)
             self.dismiss_startup_popups()
             current_probe = self.probe_current_page()
 
@@ -608,7 +647,7 @@ class DamaiBot(UIPrimitives):
         for _ in range(max_back_steps):
             if not self._press_keycode_safe(4, context="恢复导航起点"):
                 break
-            time.sleep(0.4)
+            self._sleep_with_cancel(0.4)
             current_probe = self.probe_current_page()
             if current_probe["state"] in navigable_states:
                 return current_probe
@@ -618,7 +657,7 @@ class DamaiBot(UIPrimitives):
                 self.driver.activate_app(self.config.app_package)
             else:
                 self.d.app_start(self.config.app_package, stop=False)
-            time.sleep(1)
+            self._sleep_with_cancel(1)
         except Exception:
             pass
 
@@ -654,7 +693,7 @@ class DamaiBot(UIPrimitives):
         for _ in range(max_back_steps):
             if not self._press_keycode_safe(4, context="本地快速回退"):
                 break
-            time.sleep(back_delay)
+            self._sleep_with_cancel(back_delay)
             # Use lightweight probe during back-navigation (skip popup
             # dismissal and full probe — saves ~2s per step).
             current_probe = self.probe_current_page(fast=True)
@@ -943,6 +982,7 @@ class DamaiBot(UIPrimitives):
 
     def wait_for_sale_start(self):
         """等待开售时间，在开售前 countdown_lead_ms 毫秒开始轮询。"""
+        self._raise_if_cancelled()
         if self.config.sell_start_time is None:
             if self.config.wait_cta_ready_timeout_ms > 0:
                 logger.info("未配置 sell_start_time，已跳过 CTA 等待，直接开始执行")
@@ -968,7 +1008,7 @@ class DamaiBot(UIPrimitives):
                 f"等待开售，将在 {self.config.sell_start_time} 前 "
                 f"{self.config.countdown_lead_ms}ms 开始轮询"
             )
-            time.sleep(sleep_seconds)
+            self._sleep_with_cancel(sleep_seconds)
 
         # Use BuyButtonGuard for precise button-text monitoring
         if hasattr(self, "_guard") and self._guard.wait_until_safe(
@@ -980,10 +1020,11 @@ class DamaiBot(UIPrimitives):
         # Tight polling loop with multiple purchase signals until the page becomes actionable.
         deadline = sell_time + timedelta(seconds=8)
         while datetime.now(tz=_tz_shanghai) < deadline:
+            self._raise_if_cancelled()
             if self._is_sale_ready():
                 logger.info("检测到可购买按钮，开售已开始")
                 return
-            time.sleep(0.08)
+            self._sleep_with_cancel(0.08)
 
         logger.warning("等待开售超时，继续执行")
 
@@ -999,6 +1040,7 @@ class DamaiBot(UIPrimitives):
         ]
 
         while time.time() - start < timeout:
+            self._raise_if_cancelled()
             activity = self._get_current_activity()
 
             # Success: payment page
@@ -1052,7 +1094,7 @@ class DamaiBot(UIPrimitives):
                     logger.info("订单提交成功，检测到支付页关键控件")
                     return "success"
 
-            time.sleep(0.3)
+            self._sleep_with_cancel(0.3)
 
         logger.warning("订单验证超时")
         return "timeout"
@@ -1093,6 +1135,7 @@ class DamaiBot(UIPrimitives):
 
     def _fast_retry_from_current_state(self):
         """根据当前页面状态进行快速重试。"""
+        self._raise_if_cancelled()
         page_probe = self.probe_current_page()
         state = page_probe["state"]
 
@@ -1488,6 +1531,7 @@ class DamaiBot(UIPrimitives):
             start_time = time.time()
             self._terminal_failure_reason = None
             self._last_run_outcome = None
+            self._raise_if_cancelled()
             self._log_execution_mode()
             page_probe = initial_page_probe or self.probe_current_page(fast=True)
             fast_validation_hot_path = (
@@ -1553,6 +1597,7 @@ class DamaiBot(UIPrimitives):
                     self._page_probe.invalidate_cache()
                     page_probe = self.probe_current_page(fast=False)
                     for _ in range(3):
+                        self._raise_if_cancelled()
                         if (
                             page_probe.get("state") == "detail_page"
                             and page_probe.get("purchase_button", False)
@@ -1564,7 +1609,7 @@ class DamaiBot(UIPrimitives):
                             and page_probe.get("price_container", False)
                         ):
                             break
-                        time.sleep(0.25)
+                        self._sleep_with_cancel(0.25)
                         self._page_probe.invalidate_cache()
                         page_probe = self.probe_current_page(fast=False)
 
@@ -1701,7 +1746,9 @@ class DamaiBot(UIPrimitives):
                             x = rect["x"] + rect["width"] // 2
                             y = rect["y"] + rect["height"] // 2
                             self._click_coordinates(x, y, duration=50)
-                            time.sleep(0.01 if self.config.rush_mode else 0.02)
+                            self._sleep_with_cancel(
+                                0.01 if self.config.rush_mode else 0.02
+                            )
                     except Exception as e:
                         logger.error(f"快速点击加号失败: {e}")
 
@@ -1711,47 +1758,57 @@ class DamaiBot(UIPrimitives):
 
             # 5. 确定购买 — brief wait for price selection to register.
             # Damai App ignores confirm clicks until btn_buy_view becomes clickable (price > 0).
-            time.sleep(0.05 if self.config.rush_mode else 0.5)
+            self._sleep_with_cancel(0.05 if self.config.rush_mode else 0.5)
             logger.info("确定购买...")
+            buy_burst_count, buy_interval_ms, confirm_check_timeout = (
+                self._sku_buy_click_plan()
+            )
             submit_ready = False
-            confirm_deadline = time.time() + (4.0 if self.config.rush_mode else 1.8)
+            confirm_deadline = time.time() + (10.0 if self.config.rush_mode else 1.8)
             confirm_attempt = 0
-            while time.time() < confirm_deadline and not submit_ready:
+            # while time.time() < confirm_deadline and not submit_ready:
+            while confirm_attempt < 100 and not submit_ready:
+                self._raise_if_cancelled()
                 confirm_attempt += 1
                 if self.config.rush_mode and buy_button_coords:
+                    logger.info("确定购买...1")
                     if confirm_attempt == 1:
-                        burst_count = 1 if not self.config.if_commit_order else 2
+                        logger.info(f"确定购买...2.{confirm_attempt}-{buy_burst_count}")
                         self._burst_click_coordinates(
                             *buy_button_coords,
-                            count=burst_count,
-                            interval_ms=25,
-                            duration=25,
+                            count=buy_burst_count,
+                            interval_ms=buy_interval_ms,
+                            duration=8,
                         )
                     else:
-                        burst_count = 1 if not self.config.if_commit_order else 2
+                        logger.info(f"确定购买...2.{confirm_attempt}-{buy_burst_count}")
                         if not self._click_sku_buy_button_element(
-                            burst_count=burst_count
+                            burst_count=buy_burst_count,
+                            interval_ms=buy_interval_ms,
                         ):
                             self._burst_click_coordinates(
                                 *buy_button_coords,
-                                count=burst_count,
-                                interval_ms=25,
-                                duration=25,
+                                count=buy_burst_count,
+                                interval_ms=buy_interval_ms,
+                                duration=8,
                             )
                 elif self.config.rush_mode:
+                    logger.info("确定购买...2")
                     # Element click may not work on Damai's custom btn_buy_view —
                     # use coordinate click from XML bounds as primary method.
                     _buy_coords = self._get_buy_button_coordinates()
                     if _buy_coords:
-                        burst_count = 1 if not self.config.if_commit_order else 2
                         self._burst_click_coordinates(
-                            *_buy_coords, count=burst_count, interval_ms=25, duration=25
+                            *_buy_coords,
+                            count=buy_burst_count,
+                            interval_ms=buy_interval_ms,
+                            duration=25,
                         )
                         buy_button_coords = _buy_coords  # cache for next retry
                     else:
-                        burst_count = 1 if not self.config.if_commit_order else 2
                         if not self._click_sku_buy_button_element(
-                            burst_count=burst_count
+                            burst_count=buy_burst_count,
+                            interval_ms=buy_interval_ms,
                         ):
                             try:
                                 buy_button = self._find(
@@ -1759,8 +1816,8 @@ class DamaiBot(UIPrimitives):
                                 )
                                 self._burst_click_element_center(
                                     buy_button,
-                                    count=burst_count,
-                                    interval_ms=25,
+                                    count=buy_burst_count,
+                                    interval_ms=buy_interval_ms,
                                     duration=25,
                                 )
                             except Exception:
@@ -1775,7 +1832,10 @@ class DamaiBot(UIPrimitives):
                         )
                 # Short wait then check if confirm page appeared
                 remaining = confirm_deadline - time.time()
-                check_timeout = min(1.0, max(0.1, remaining))
+                check_timeout = min(
+                    confirm_check_timeout,
+                    max(0.05 if self.config.rush_mode else 0.1, remaining),
+                )
                 submit_ready = self._wait_for_submit_ready(
                     timeout=check_timeout,
                     poll_interval=0.03 if self.config.rush_mode else 0.05,
@@ -1871,16 +1931,25 @@ class DamaiBot(UIPrimitives):
             )
             return False
 
+        except OperationCancelled:
+            logger.info("已取消当前抢票流程")
+            self._set_run_outcome("cancelled")
+            return False
         except Exception as e:
+            if self._is_cancel_requested():
+                logger.info("已取消当前抢票流程")
+                self._set_run_outcome("cancelled")
+                return False
             logger.error(f"抢票过程发生错误: {e}")
             return False
         finally:
-            time.sleep(0.05)
+            if not self._is_cancel_requested():
+                time.sleep(0.05)
 
     def run_with_retry(self, max_retries=3, initial_page_probe=None):
         """带重试机制的抢票"""
         for attempt in range(max_retries):
-            if self.cancel_event is not None and self.cancel_event.is_set():
+            if self._is_cancel_requested():
                 logger.info("已取消运行，停止后续重试")
                 self._set_run_outcome("cancelled")
                 return False
@@ -1899,7 +1968,7 @@ class DamaiBot(UIPrimitives):
 
             # Fast retry within same session
             for fast_attempt in range(self.config.fast_retry_count):
-                if self.cancel_event is not None and self.cancel_event.is_set():
+                if self._is_cancel_requested():
                     logger.info("已取消运行，停止快速重试")
                     self._set_run_outcome("cancelled")
                     return False

@@ -1,7 +1,7 @@
 {
   // ── 设备连接 ──
   // adb devices 显示的设备序列号（必填）
-  "serial": "你的设备序列号",
+  "serial": "",
 
   // ── 目标演出（必填）──
   // 搜索关键词，用于在大麦 App 内搜索目标演出
@@ -28,7 +28,7 @@
 
   // ── 导航 ──
   // 自动从首页搜索并导航到目标演出
-  "auto_navigate": true,
+  "auto_navigate": false,
 
   // ── 开售倒计时（可选）──
   // 精确开抢时间（ISO 格式），例如 "2026-04-06T12:00:00+08:00"
@@ -40,7 +40,7 @@
   // 极速模式：信任 price_index 跳过冗余 UI 读取，推荐开启
   "rush_mode": true,
   // 快速重试次数（不重建 driver）
-  "fast_retry_count": 8,
+  "fast_retry_count": 16,
   // 快速重试间隔（毫秒）
   "fast_retry_interval_ms": 80
 }
